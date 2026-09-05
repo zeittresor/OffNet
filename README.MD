@@ -7,7 +7,7 @@ OffNet ist eine kleine Windows-10/11-Tray-App zum Aktivieren und Deaktivieren
 von Netzwerkgeräten direkt auf PnP-/Treiberebene.
 
 Projektverweis:
-https://github.com/zeittresor
+https://github.com/zeittresor/OffNet
 
 Lizenz:
 MIT (siehe LICENSE)
