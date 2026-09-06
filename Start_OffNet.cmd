@@ -3,7 +3,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 if not exist "OffNet.exe" (
-    echo [INFO] OffNet.exe ist noch nicht vorhanden - Build wird gestartet.
+    echo [INFO] OffNet.exe is not present yet - starting build.
     call "%~dp0Build_OffNet.cmd"
     if errorlevel 1 exit /b 1
 )
