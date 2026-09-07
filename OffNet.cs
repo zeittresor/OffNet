@@ -1,5 +1,5 @@
 ﻿/*
- * OffNet 1.1.0
+ * OffNet 1.1.2
  * Lightweight Windows 10/11 network-device tray controller.
  *
  * Project: https://github.com/zeittresor/OffNet
@@ -29,7 +29,7 @@ namespace OffNet
     internal static class Program
     {
         internal const string AppName = "OffNet";
-        internal const string Version = "1.1.1";
+        internal const string Version = "1.1.2";
         internal const string ProjectUrl = "https://github.com/zeittresor/OffNet";
 
         [STAThread]
@@ -180,6 +180,8 @@ namespace OffNet
                 {"RestoreDefaults", "Restore defaults"},
                 {"OpenProject", "Open project page"},
                 {"OptionsHint", "The offline color blinks between the selected color and a lighter shade."},
+                {"StartWithWindows", "Start OffNet automatically when I sign in to Windows"},
+                {"StartupChangeFailed", "The Windows startup setting could not be changed.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Cancel"},
                 {"English", "English"},
@@ -262,6 +264,8 @@ namespace OffNet
                 {"RestoreDefaults", "Standard wiederherstellen"},
                 {"OpenProject", "Projektseite öffnen"},
                 {"OptionsHint", "Die Offline-Farbe blinkt zwischen der gewählten Farbe und einem helleren Farbton."},
+                {"StartWithWindows", "OffNet bei der Windows-Anmeldung automatisch starten"},
+                {"StartupChangeFailed", "Die Windows-Autostart-Einstellung konnte nicht geändert werden.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Abbrechen"},
                 {"English", "Englisch"},
@@ -344,6 +348,8 @@ namespace OffNet
                 {"RestoreDefaults", "Valeurs par défaut"},
                 {"OpenProject", "Ouvrir la page du projet"},
                 {"OptionsHint", "La couleur hors ligne clignote entre la couleur choisie et une teinte plus claire."},
+                {"StartWithWindows", "Démarrer OffNet automatiquement à l’ouverture de session Windows"},
+                {"StartupChangeFailed", "Le paramètre de démarrage automatique de Windows n’a pas pu être modifié.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Annuler"},
                 {"English", "Anglais"},
@@ -893,6 +899,195 @@ namespace OffNet
         public override string ToString() { return Name; }
     }
 
+    internal static class StartupManager
+    {
+        private const string TaskName = "OffNet AutoStart";
+        private const int TaskCreateOrUpdate = 6;
+        private const int TaskLogonInteractiveToken = 3;
+        private const int TaskRunLevelHighest = 1;
+        private const int TaskTriggerLogon = 9;
+        private const int TaskActionExecute = 0;
+
+        internal static bool IsEnabled()
+        {
+            object service = null;
+            object root = null;
+            object task = null;
+            object definition = null;
+            object actions = null;
+            object action = null;
+
+            try
+            {
+                dynamic scheduler = CreateScheduler(out service);
+                scheduler.Connect();
+                dynamic rootFolder = scheduler.GetFolder("\\");
+                root = rootFolder;
+
+                dynamic registeredTask = rootFolder.GetTask(TaskName);
+                task = registeredTask;
+                if (registeredTask == null || !Convert.ToBoolean(registeredTask.Enabled))
+                    return false;
+
+                dynamic taskDefinition = registeredTask.Definition;
+                definition = taskDefinition;
+                dynamic taskActions = taskDefinition.Actions;
+                actions = taskActions;
+                if (Convert.ToInt32(taskActions.Count) < 1)
+                    return false;
+
+                dynamic execAction = taskActions.Item(1);
+                action = execAction;
+                string configuredPath = Convert.ToString(execAction.Path);
+                if (String.IsNullOrWhiteSpace(configuredPath))
+                    return false;
+
+                return PathsEqual(configuredPath, Application.ExecutablePath);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                ReleaseCom(action);
+                ReleaseCom(actions);
+                ReleaseCom(definition);
+                ReleaseCom(task);
+                ReleaseCom(root);
+                ReleaseCom(service);
+            }
+        }
+
+        internal static void SetEnabled(bool enabled)
+        {
+            object service = null;
+            object root = null;
+            object definition = null;
+            object registration = null;
+            object principal = null;
+            object settings = null;
+            object triggers = null;
+            object trigger = null;
+            object actions = null;
+            object action = null;
+            object registeredTask = null;
+
+            try
+            {
+                dynamic scheduler = CreateScheduler(out service);
+                scheduler.Connect();
+                dynamic rootFolder = scheduler.GetFolder("\\");
+                root = rootFolder;
+
+                if (!enabled)
+                {
+                    try
+                    {
+                        rootFolder.DeleteTask(TaskName, 0);
+                    }
+                    catch (COMException)
+                    {
+                        // Missing tasks are equivalent to disabled autostart.
+                    }
+                    return;
+                }
+
+                dynamic taskDefinition = scheduler.NewTask(0);
+                definition = taskDefinition;
+
+                dynamic registrationInfo = taskDefinition.RegistrationInfo;
+                registration = registrationInfo;
+                registrationInfo.Description =
+                    "Starts OffNet at Windows sign-in with the privileges required for PnP/driver control. " +
+                    Program.ProjectUrl;
+                registrationInfo.Author = "zeittresor";
+
+                dynamic taskPrincipal = taskDefinition.Principal;
+                principal = taskPrincipal;
+                taskPrincipal.UserId = WindowsIdentity.GetCurrent().Name;
+                taskPrincipal.LogonType = TaskLogonInteractiveToken;
+                taskPrincipal.RunLevel = TaskRunLevelHighest;
+
+                dynamic taskSettings = taskDefinition.Settings;
+                settings = taskSettings;
+                taskSettings.Enabled = true;
+                taskSettings.StartWhenAvailable = true;
+                taskSettings.DisallowStartIfOnBatteries = false;
+                taskSettings.StopIfGoingOnBatteries = false;
+                taskSettings.ExecutionTimeLimit = "PT0S";
+
+                dynamic taskTriggers = taskDefinition.Triggers;
+                triggers = taskTriggers;
+                dynamic logonTrigger = taskTriggers.Create(TaskTriggerLogon);
+                trigger = logonTrigger;
+                logonTrigger.UserId = WindowsIdentity.GetCurrent().Name;
+                logonTrigger.Enabled = true;
+
+                dynamic taskActions = taskDefinition.Actions;
+                actions = taskActions;
+                dynamic execAction = taskActions.Create(TaskActionExecute);
+                action = execAction;
+                execAction.Path = Application.ExecutablePath;
+                execAction.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+
+                dynamic result = rootFolder.RegisterTaskDefinition(
+                    TaskName,
+                    taskDefinition,
+                    TaskCreateOrUpdate,
+                    null,
+                    null,
+                    TaskLogonInteractiveToken,
+                    null);
+                registeredTask = result;
+            }
+            finally
+            {
+                ReleaseCom(registeredTask);
+                ReleaseCom(action);
+                ReleaseCom(actions);
+                ReleaseCom(trigger);
+                ReleaseCom(triggers);
+                ReleaseCom(settings);
+                ReleaseCom(principal);
+                ReleaseCom(registration);
+                ReleaseCom(definition);
+                ReleaseCom(root);
+                ReleaseCom(service);
+            }
+        }
+
+        private static dynamic CreateScheduler(out object serviceObject)
+        {
+            Type schedulerType = Type.GetTypeFromProgID("Schedule.Service", true);
+            serviceObject = Activator.CreateInstance(schedulerType);
+            return serviceObject;
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            try
+            {
+                string a = Path.GetFullPath(left.Trim().Trim('"'));
+                string b = Path.GetFullPath(right.Trim().Trim('"'));
+                return String.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return String.Equals(left.Trim().Trim('"'), right.Trim().Trim('"'), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static void ReleaseCom(object value)
+        {
+            if (value == null || !Marshal.IsComObject(value))
+                return;
+
+            try { Marshal.FinalReleaseComObject(value); }
+            catch { }
+        }
+    }
+
     internal sealed class OptionsForm : Form
     {
         private readonly ComboBox languageBox;
@@ -902,6 +1097,7 @@ namespace OffNet
         private readonly Label disabledLabel;
         private readonly Label offlineLabel;
         private readonly Label hintLabel;
+        private readonly CheckBox startupCheckBox;
         private Button activeButton;
         private Button disabledButton;
         private Button offlineButton;
@@ -917,13 +1113,15 @@ namespace OffNet
         private bool applyingLanguage;
 
         internal AppSettings ResultSettings { get; private set; }
+        internal bool ResultStartWithWindows { get; private set; }
 
-        internal OptionsForm(AppSettings current)
+        internal OptionsForm(AppSettings current, bool startWithWindows)
         {
             ResultSettings = current.Clone();
             activeColor = Color.FromArgb(current.ActiveColorArgb);
             disabledColor = Color.FromArgb(current.DisabledColorArgb);
             offlineColor = Color.FromArgb(current.OfflineColorArgb);
+            ResultStartWithWindows = startWithWindows;
 
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -931,7 +1129,7 @@ namespace OffNet
             MinimizeBox = false;
             ShowInTaskbar = false;
             Width = 535;
-            Height = 410;
+            Height = 455;
             Font = new Font("Segoe UI", 9.0f);
 
             languageLabel = new Label();
@@ -964,8 +1162,15 @@ namespace OffNet
             disabledButton.Click += delegate { disabledColor = PickColor(disabledColor); UpdateColorButtons(); };
             offlineButton.Click += delegate { offlineColor = PickColor(offlineColor); UpdateColorButtons(); };
 
+            startupCheckBox = new CheckBox();
+            startupCheckBox.AutoSize = false;
+            startupCheckBox.Location = new Point(18, 263);
+            startupCheckBox.Size = new Size(468, 34);
+            startupCheckBox.Checked = startWithWindows;
+            Controls.Add(startupCheckBox);
+
             defaultsButton = new Button();
-            defaultsButton.Location = new Point(16, 266);
+            defaultsButton.Location = new Point(16, 308);
             defaultsButton.Size = new Size(160, 32);
             defaultsButton.Click += delegate
             {
@@ -977,20 +1182,20 @@ namespace OffNet
             Controls.Add(defaultsButton);
 
             projectButton = new Button();
-            projectButton.Location = new Point(184, 266);
+            projectButton.Location = new Point(184, 308);
             projectButton.Size = new Size(180, 32);
             projectButton.Click += delegate { ShellHelper.OpenProjectPage(); };
             Controls.Add(projectButton);
 
             okButton = new Button();
-            okButton.Location = new Point(300, 320);
+            okButton.Location = new Point(300, 362);
             okButton.Size = new Size(90, 32);
             okButton.DialogResult = DialogResult.OK;
             okButton.Click += delegate { CommitSettings(); };
             Controls.Add(okButton);
 
             cancelButton = new Button();
-            cancelButton.Location = new Point(400, 320);
+            cancelButton.Location = new Point(400, 362);
             cancelButton.Size = new Size(90, 32);
             cancelButton.DialogResult = DialogResult.Cancel;
             Controls.Add(cancelButton);
@@ -1079,6 +1284,7 @@ namespace OffNet
             disabledLabel.Text = Localization.T("DisabledColor");
             offlineLabel.Text = Localization.T("OfflineColor");
             hintLabel.Text = Localization.T("OptionsHint");
+            startupCheckBox.Text = Localization.T("StartWithWindows");
             defaultsButton.Text = Localization.T("RestoreDefaults");
             projectButton.Text = Localization.T("OpenProject");
             okButton.Text = Localization.T("OK");
@@ -1092,6 +1298,7 @@ namespace OffNet
             ResultSettings.ActiveColorArgb = activeColor.ToArgb();
             ResultSettings.DisabledColorArgb = disabledColor.ToArgb();
             ResultSettings.OfflineColorArgb = offlineColor.ToArgb();
+            ResultStartWithWindows = startupCheckBox.Checked;
         }
     }
 
@@ -1548,7 +1755,9 @@ namespace OffNet
         private void ShowOptions()
         {
             string oldLanguage = Localization.CurrentLanguage;
-            using (OptionsForm form = new OptionsForm(settings))
+            bool startupEnabled = StartupManager.IsEnabled();
+
+            using (OptionsForm form = new OptionsForm(settings, startupEnabled))
             {
                 DialogResult result = form.ShowDialog(mainWindow.Visible ? mainWindow : null);
                 if (result == DialogResult.OK)
@@ -1556,6 +1765,22 @@ namespace OffNet
                     settings = form.ResultSettings.Clone();
                     Localization.SetLanguage(settings.Language);
                     ConfigurationStore.SaveSettings(settings);
+
+                    try
+                    {
+                        // Re-register even when already enabled so moving OffNet.exe to a
+                        // new folder automatically refreshes the scheduled-task path.
+                        StartupManager.SetEnabled(form.ResultStartWithWindows);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            Localization.F("StartupChangeFailed", ex.Message),
+                            Program.AppName,
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+
                     RecreateIcons();
                     ApplyLocalization();
                     mainWindow.RefreshDevices();

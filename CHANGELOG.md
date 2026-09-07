@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2
+
+- Added an **Options** checkbox to start OffNet automatically at Windows sign-in.
+- Autostart uses Windows Task Scheduler with a per-user **At log on** trigger and **highest privileges**, avoiding the limitations of ordinary startup entries for elevated applications.
+- Disabling the checkbox removes the scheduled task.
+- Saving Options while autostart is enabled refreshes the task to the current `OffNet.exe` path.
+- Added English, German and French localization for the new option and related errors.
+
 ## 1.1.1
 
 - Simplified the tray context menu.

@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-title OffNet 1.1.1 - Build
+title OffNet 1.1.2 - Build
 
 echo ============================================================
-echo   OffNet 1.1.1
+echo   OffNet 1.1.2
 echo   C# / WinForms - Windows 10/11 Build
 echo   https://github.com/zeittresor/OffNet
 echo ============================================================
@@ -44,6 +44,7 @@ if exist "OffNet.exe" del /q "OffNet.exe" >nul 2>&1
  /reference:System.dll ^
  /reference:System.Drawing.dll ^
  /reference:System.Windows.Forms.dll ^
+ /reference:Microsoft.CSharp.dll ^
  /out:"OffNet.exe" ^
  "OffNet.cs"
 

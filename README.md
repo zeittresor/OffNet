@@ -51,7 +51,14 @@ The **Options** dialog allows you to change:
 - Active + Internet circle color
 - Disabled circle color
 - Active but no Internet circle color
+- Start OffNet automatically when you sign in to Windows
 - Open the OffNet project page on GitHub
+
+### Automatic startup
+
+Because OffNet needs elevated privileges for PnP/driver-level device control, the automatic-start option does **not** use the ordinary Startup folder or `HKCU\...\Run` registry value. Instead, OffNet registers a per-user Windows Task Scheduler task with an **At log on** trigger and **highest privileges**. Disabling the checkbox removes that task.
+
+The task points to the current `OffNet.exe`. Saving Options while automatic startup is enabled refreshes the path automatically if the application was moved.
 
 The no-Internet state blinks between the chosen color and a lighter version of the same color.
 
