@@ -17,6 +17,7 @@ Project page: **https://github.com/zeittresor/OffNet**
 - Reconnect runs DHCP release/renew for IPv4 and IPv6 without showing a console window.
 - Per-device **Tray control** selection so physical adapters can be managed without disabling every WAN miniport or virtual adapter.
 - Optional rolling traffic graph directly inside the tray menu.
+- Optional permanent, click-through throughput meter visually embedded in the Windows taskbar.
 - UI languages: **English (default)**, **German**, and **French**.
 - Configurable tray-state colors and traffic-graph colors.
 - Optional automatic startup at Windows sign-in.
@@ -65,7 +66,7 @@ Download and upload share the same graph and can overlap. Their separate colors 
 
 The third curve is intentionally shown only for disabled periods. This makes it possible to notice traffic through another adapter even though the adapters controlled by OffNet are supposed to be offline.
 
-Traffic is sampled once per second while the overview option is enabled. The default 10-minute history therefore keeps only about 600 samples in memory.
+Traffic is sampled once per second while either the tray-menu overview or the permanent taskbar meter is enabled. The default 10-minute history therefore keeps only about 600 samples in memory.
 
 No external server is contacted for the traffic graph. OffNet reads local Windows network-interface byte counters.
 
@@ -78,6 +79,7 @@ The **Options** dialog allows you to change:
 - Disabled tray-circle color
 - Active but no Internet tray-circle color
 - Show or hide the traffic overview in the tray menu
+- Show or hide the permanent taskbar throughput meter
 - Traffic history length
 - Download curve color
 - Upload curve color
@@ -103,7 +105,7 @@ Managed device instance IDs are stored separately in:
 
 Because OffNet needs elevated privileges for PnP/driver-level device control, the automatic-start option does **not** use the ordinary Startup folder or `HKCU\...\Run` registry value. Instead, OffNet registers a per-user Windows Task Scheduler task with an **At log on** trigger and **highest privileges**. Disabling the checkbox removes that task.
 
-The task points to the current `OffNet.exe`. Saving Options while automatic startup is enabled refreshes the path automatically if the application was moved.
+The task points to the current `OffNet.exe`. OffNet only changes the scheduled task when the automatic-start checkbox itself is changed. If the application is moved to another folder, disable and re-enable the automatic-start option once so the task is registered with the new executable path.
 
 ## Build
 
@@ -149,3 +151,65 @@ Disabling the physical network adapter currently carrying an RDP, VPN, TeamViewe
 ## License
 
 OffNet is released under the **MIT License**. See [LICENSE](LICENSE).
+
+
+## Runtime options reliability (1.2.1)
+
+- Language, tray colors, traffic history and graph options are applied independently from Windows autostart.
+- The Task Scheduler entry is modified only when the **Start OffNet automatically when I sign in to Windows** checkbox actually changes.
+- A Windows autostart error therefore no longer prevents a runtime language change or any other OffNet option from being saved.
+- Scheduled-task registration now uses the running executable's resolved path and no unnecessary working-directory field.
+
+
+## Permanent taskbar throughput meter
+
+OffNet can optionally show a lightweight, click-through throughput meter directly over the Windows taskbar. It shares the same rolling history and colors as the tray-menu graph and displays Download, Upload, and Offline activity in Mbit/s. The graph scale follows the highest visible value in the selected rolling time window and can move both upward and downward as old peaks leave the history.
+
+The meter background is transparent, so the current Windows taskbar appearance remains visible underneath it.
+
+
+## Taskbar meter readability and Z-order
+
+Version 1.3.1 improves the optional permanent Windows-taskbar throughput meter:
+
+- OffNet explicitly reapplies the Win32 topmost Z-order while the meter is visible using `SetWindowPos(..., HWND_TOPMOST, ... SWP_NOACTIVATE ...)`.
+- The meter remains click-through and does not take keyboard focus.
+- Z-order and position are refreshed periodically while the meter is enabled, preventing the taskbar compositor from visually covering it after focus changes.
+- Current Download, Upload and Offline-activity values are arranged horizontally instead of being squeezed into three vertical rows.
+- The taskbar meter font is selectable in **Options** from the fonts installed on Windows.
+- Default meter font: **Segoe UI Semibold**.
+- If a configured font is unavailable, OffNet falls back safely to Segoe UI Semibold / Segoe UI.
+- The Options dialog is resizable and scrollable so future options remain accessible on smaller displays.
+
+
+## Configurable traffic measurement points
+
+The traffic options include a **Measurement points** slider with a range of **10 to 1000 points**. The default is **600**.
+
+OffNet treats this value as the target resolution across the complete selected rolling history rather than simply truncating a one-second history. The sampling interval is therefore derived from both settings:
+
+```text
+sample interval = history duration / measurement points
+```
+
+Examples:
+
+- 10 minutes / 600 points = 1 sample per second
+- 10 minutes / 100 points = 1 sample every 6 seconds
+- 10 minutes / 1000 points = 1 sample every 0.6 seconds
+- 60 minutes / 600 points = 1 sample every 6 seconds
+
+This keeps the complete configured time span visible while allowing the user to trade graph resolution against CPU activity and memory use. OffNet stores at most the configured number of traffic samples and still removes samples that fall outside the selected rolling time window.
+
+
+## Single tray status indicator
+
+Version 1.3.3 removes the additional small OffNet status circle from the permanent taskbar throughput meter.
+
+The normal OffNet notification-area icon remains the single status indicator:
+
+- active + Internet
+- device/driver disabled
+- active but no Internet
+
+The permanent throughput meter now contains only the traffic values, rolling graph and dynamic Mbit/s scale.

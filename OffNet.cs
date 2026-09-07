@@ -1,5 +1,5 @@
 ﻿/*
- * OffNet 1.2.0
+ * OffNet 1.3.3
  * Lightweight Windows 10/11 network-device tray controller.
  *
  * Project: https://github.com/zeittresor/OffNet
@@ -31,7 +31,7 @@ namespace OffNet
     internal static class Program
     {
         internal const string AppName = "OffNet";
-        internal const string Version = "1.2.0";
+        internal const string Version = "1.3.3";
         internal const string ProjectUrl = "https://github.com/zeittresor/OffNet";
 
         [STAThread]
@@ -95,7 +95,10 @@ namespace OffNet
 
         // Optional tray traffic overview. Disabled by default to keep the tray menu slim.
         internal bool ShowTrafficOverview = false;
+        internal bool ShowTaskbarTrafficMeter = false;
+        internal string TaskbarMeterFontName = "Segoe UI Semibold";
         internal int TrafficHistoryMinutes = 10;
+        internal int TrafficSamplePoints = 600;
         internal int DownloadColorArgb = Color.DodgerBlue.ToArgb();
         internal int UploadColorArgb = Color.DarkOrange.ToArgb();
         internal int OfflineActivityColorArgb = Color.MediumPurple.ToArgb();
@@ -108,7 +111,10 @@ namespace OffNet
             copy.DisabledColorArgb = DisabledColorArgb;
             copy.OfflineColorArgb = OfflineColorArgb;
             copy.ShowTrafficOverview = ShowTrafficOverview;
+            copy.ShowTaskbarTrafficMeter = ShowTaskbarTrafficMeter;
+            copy.TaskbarMeterFontName = TaskbarMeterFontName;
             copy.TrafficHistoryMinutes = TrafficHistoryMinutes;
+            copy.TrafficSamplePoints = TrafficSamplePoints;
             copy.DownloadColorArgb = DownloadColorArgb;
             copy.UploadColorArgb = UploadColorArgb;
             copy.OfflineActivityColorArgb = OfflineActivityColorArgb;
@@ -197,12 +203,15 @@ namespace OffNet
                 {"StartWithWindows", "Start OffNet automatically when I sign in to Windows"},
                 {"TrafficOverviewGroup", "Traffic overview"},
                 {"ShowTrafficOverview", "Show traffic overview in the tray menu"},
+                {"ShowTaskbarTrafficMeter", "Show permanent throughput meter on the Windows taskbar"},
+                {"TaskbarMeterFont", "Taskbar meter font"},
                 {"TrafficHistory", "History length"},
+                {"TrafficSamplePoints", "Measurement points"},
                 {"Minutes", "minutes"},
                 {"DownloadColor", "Download"},
                 {"UploadColor", "Upload"},
                 {"OfflineActivityColor", "Offline activity"},
-                {"TrafficOptionsHint", "Offline activity shows traffic on other active adapters while all OffNet-managed adapters are disabled."},
+                {"TrafficOptionsHint", "The same history length and colors are used for both graphs. The permanent taskbar meter also has its own font selection. Offline activity shows traffic on other active adapters while all OffNet-managed adapters are disabled. The taskbar meter has a transparent background so it follows the taskbar appearance."},
                 {"TrafficGraphTitle", "Network throughput — last {0} min"},
                 {"TrafficDownload", "Download"},
                 {"TrafficUpload", "Upload"},
@@ -295,12 +304,15 @@ namespace OffNet
                 {"StartWithWindows", "OffNet bei der Windows-Anmeldung automatisch starten"},
                 {"TrafficOverviewGroup", "Datenverkehr-Übersicht"},
                 {"ShowTrafficOverview", "Datenverkehr-Übersicht im Tray-Menü anzeigen"},
+                {"ShowTaskbarTrafficMeter", "Permanente Datendurchsatz-Anzeige in der Windows-Taskleiste anzeigen"},
+                {"TaskbarMeterFont", "Schriftart der Taskleisten-Anzeige"},
                 {"TrafficHistory", "Verlaufsdauer"},
+                {"TrafficSamplePoints", "Messpunkte"},
                 {"Minutes", "Minuten"},
                 {"DownloadColor", "Download"},
                 {"UploadColor", "Upload"},
                 {"OfflineActivityColor", "Offline-Aktivität"},
-                {"TrafficOptionsHint", "Offline-Aktivität zeigt Datenverkehr auf anderen aktiven Adaptern, während alle von OffNet verwalteten Adapter deaktiviert sind."},
+                {"TrafficOptionsHint", "Für beide Diagramme gelten dieselbe Verlaufsdauer und dieselben Farben. Für die permanente Taskleisten-Anzeige kann zusätzlich die Schriftart gewählt werden. Offline-Aktivität zeigt Datenverkehr auf anderen aktiven Adaptern, während alle von OffNet verwalteten Adapter deaktiviert sind. Die Taskleisten-Anzeige hat einen transparenten Hintergrund und übernimmt dadurch das Aussehen der Taskleiste."},
                 {"TrafficGraphTitle", "Netzwerkdurchsatz — letzte {0} Min."},
                 {"TrafficDownload", "Download"},
                 {"TrafficUpload", "Upload"},
@@ -393,12 +405,15 @@ namespace OffNet
                 {"StartWithWindows", "Démarrer OffNet automatiquement à l’ouverture de session Windows"},
                 {"TrafficOverviewGroup", "Aperçu du trafic"},
                 {"ShowTrafficOverview", "Afficher l’aperçu du trafic dans le menu de la zone de notification"},
+                {"ShowTaskbarTrafficMeter", "Afficher en permanence le débit dans la barre des tâches Windows"},
+                {"TaskbarMeterFont", "Police de l’affichage de la barre des tâches"},
                 {"TrafficHistory", "Durée de l’historique"},
+                {"TrafficSamplePoints", "Points de mesure"},
                 {"Minutes", "minutes"},
                 {"DownloadColor", "Téléchargement"},
                 {"UploadColor", "Envoi"},
                 {"OfflineActivityColor", "Activité hors ligne"},
-                {"TrafficOptionsHint", "L’activité hors ligne montre le trafic sur d’autres adaptateurs actifs lorsque tous les adaptateurs gérés par OffNet sont désactivés."},
+                {"TrafficOptionsHint", "Les deux graphiques utilisent la même durée d’historique et les mêmes couleurs. La police de l’affichage permanent de la barre des tâches peut également être choisie. L’activité hors ligne montre le trafic sur d’autres adaptateurs actifs lorsque tous les adaptateurs gérés par OffNet sont désactivés. L’affichage de la barre des tâches est transparent et suit donc son apparence."},
                 {"TrafficGraphTitle", "Débit réseau — {0} dernières min"},
                 {"TrafficDownload", "Téléchargement"},
                 {"TrafficUpload", "Envoi"},
@@ -576,7 +591,10 @@ namespace OffNet
                     else if (key == "disabled_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DisabledColorArgb = colorValue;
                     else if (key == "offline_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.OfflineColorArgb = colorValue;
                     else if (key == "show_traffic_overview" && Boolean.TryParse(value, out boolValue)) settings.ShowTrafficOverview = boolValue;
+                    else if (key == "show_taskbar_traffic_meter" && Boolean.TryParse(value, out boolValue)) settings.ShowTaskbarTrafficMeter = boolValue;
+                    else if (key == "taskbar_meter_font" && !String.IsNullOrWhiteSpace(value)) settings.TaskbarMeterFontName = value;
                     else if (key == "traffic_history_minutes" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficHistoryMinutes = Math.Max(1, Math.Min(60, intValue));
+                    else if (key == "traffic_sample_points" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficSamplePoints = Math.Max(10, Math.Min(1000, intValue));
                     else if (key == "download_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DownloadColorArgb = colorValue;
                     else if (key == "upload_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.UploadColorArgb = colorValue;
                     else if (key == "offline_activity_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.OfflineActivityColorArgb = colorValue;
@@ -600,7 +618,10 @@ namespace OffNet
             lines.Add("disabled_color=" + settings.DisabledColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("offline_color=" + settings.OfflineColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("show_traffic_overview=" + (settings.ShowTrafficOverview ? "true" : "false"));
+            lines.Add("show_taskbar_traffic_meter=" + (settings.ShowTaskbarTrafficMeter ? "true" : "false"));
+            lines.Add("taskbar_meter_font=" + (String.IsNullOrWhiteSpace(settings.TaskbarMeterFontName) ? "Segoe UI Semibold" : settings.TaskbarMeterFontName));
             lines.Add("traffic_history_minutes=" + settings.TrafficHistoryMinutes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("traffic_sample_points=" + settings.TrafficSamplePoints.ToString(CultureInfo.InvariantCulture));
             lines.Add("download_color=" + settings.DownloadColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("upload_color=" + settings.UploadColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("offline_activity_color=" + settings.OfflineActivityColorArgb.ToString(CultureInfo.InvariantCulture));
@@ -628,6 +649,18 @@ namespace OffNet
             internal Guid ClassGuid;
             internal uint DevInst;
             internal IntPtr Reserved;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct RECT
+        {
+            internal int Left;
+            internal int Top;
+            internal int Right;
+            internal int Bottom;
+
+            internal int Width { get { return Right - Left; } }
+            internal int Height { get { return Bottom - Top; } }
         }
 
         [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -668,6 +701,40 @@ namespace OffNet
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        internal static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        internal const uint SWP_NOSIZE = 0x0001;
+        internal const uint SWP_NOMOVE = 0x0002;
+        internal const uint SWP_NOACTIVATE = 0x0010;
+        internal const uint SWP_SHOWWINDOW = 0x0040;
+        internal const uint SWP_NOOWNERZORDER = 0x0200;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern IntPtr FindWindowEx(
+            IntPtr hwndParent,
+            IntPtr hwndChildAfter,
+            string lpszClass,
+            string lpszWindow);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetWindowRect(
+            IntPtr hWnd,
+            out RECT lpRect);
 
         [DllImport("wininet.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -1067,7 +1134,7 @@ namespace OffNet
                 if (String.IsNullOrWhiteSpace(configuredPath))
                     return false;
 
-                return PathsEqual(configuredPath, Application.ExecutablePath);
+                return PathsEqual(configuredPath, GetCurrentExecutablePath());
             }
             catch
             {
@@ -1153,8 +1220,18 @@ namespace OffNet
                 actions = taskActions;
                 dynamic execAction = taskActions.Create(TaskActionExecute);
                 action = execAction;
-                execAction.Path = Application.ExecutablePath;
-                execAction.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+
+                string executablePath = GetCurrentExecutablePath();
+                if (String.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+                {
+                    throw new FileNotFoundException(
+                        "The current OffNet executable could not be found.",
+                        executablePath);
+                }
+
+                // The Task Scheduler ExecAction requires a plain executable path.
+                // OffNet does not need a working directory, so do not set one here.
+                execAction.Path = executablePath;
 
                 dynamic result = rootFolder.RegisterTaskDefinition(
                     TaskName,
@@ -1187,6 +1264,33 @@ namespace OffNet
             Type schedulerType = Type.GetTypeFromProgID("Schedule.Service", true);
             serviceObject = Activator.CreateInstance(schedulerType);
             return serviceObject;
+        }
+
+        private static string GetCurrentExecutablePath()
+        {
+            try
+            {
+                using (Process process = Process.GetCurrentProcess())
+                {
+                    if (process.MainModule != null &&
+                        !String.IsNullOrWhiteSpace(process.MainModule.FileName))
+                    {
+                        return Path.GetFullPath(process.MainModule.FileName);
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return Path.GetFullPath(Application.ExecutablePath);
+            }
+            catch
+            {
+                return Application.ExecutablePath;
+            }
         }
 
         private static bool PathsEqual(string left, string right)
@@ -1229,9 +1333,15 @@ namespace OffNet
 
         private readonly GroupBox trafficGroup;
         private readonly CheckBox trafficOverviewCheckBox;
+        private readonly CheckBox taskbarTrafficCheckBox;
+        private readonly Label taskbarFontLabel;
+        private readonly ComboBox taskbarFontBox;
         private readonly Label trafficHistoryLabel;
         private readonly NumericUpDown trafficHistoryMinutes;
         private readonly Label trafficMinutesLabel;
+        private readonly Label trafficSamplePointsLabel;
+        private readonly TrackBar trafficSamplePointsSlider;
+        private readonly Label trafficSamplePointsValue;
         private readonly Label downloadLabel;
         private readonly Label uploadLabel;
         private readonly Label offlineActivityLabel;
@@ -1272,12 +1382,15 @@ namespace OffNet
             ResultStartWithWindows = startWithWindows;
 
             StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            Width = 640;
-            Height = 710;
+            Width = 660;
+            Height = 760;
+            MinimumSize = new Size(640, 560);
+            AutoScroll = true;
+            AutoScrollMinSize = new Size(620, 790);
             Font = new Font("Segoe UI", 9.0f);
 
             languageLabel = new Label();
@@ -1312,7 +1425,7 @@ namespace OffNet
 
             trafficGroup = new GroupBox();
             trafficGroup.Location = new Point(16, 262);
-            trafficGroup.Size = new Size(588, 278);
+            trafficGroup.Size = new Size(588, 410);
             Controls.Add(trafficGroup);
 
             trafficOverviewCheckBox = new CheckBox();
@@ -1322,9 +1435,28 @@ namespace OffNet
             trafficOverviewCheckBox.Checked = current.ShowTrafficOverview;
             trafficGroup.Controls.Add(trafficOverviewCheckBox);
 
+            taskbarTrafficCheckBox = new CheckBox();
+            taskbarTrafficCheckBox.AutoSize = false;
+            taskbarTrafficCheckBox.Location = new Point(16, 52);
+            taskbarTrafficCheckBox.Size = new Size(552, 26);
+            taskbarTrafficCheckBox.Checked = current.ShowTaskbarTrafficMeter;
+            trafficGroup.Controls.Add(taskbarTrafficCheckBox);
+
+            taskbarFontLabel = new Label();
+            taskbarFontLabel.AutoSize = false;
+            taskbarFontLabel.Location = new Point(16, 86);
+            taskbarFontLabel.Size = new Size(300, 24);
+            trafficGroup.Controls.Add(taskbarFontLabel);
+
+            taskbarFontBox = new ComboBox();
+            taskbarFontBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            taskbarFontBox.Location = new Point(350, 82);
+            taskbarFontBox.Size = new Size(200, 24);
+            trafficGroup.Controls.Add(taskbarFontBox);
+
             trafficHistoryLabel = new Label();
             trafficHistoryLabel.AutoSize = false;
-            trafficHistoryLabel.Location = new Point(16, 60);
+            trafficHistoryLabel.Location = new Point(16, 120);
             trafficHistoryLabel.Size = new Size(300, 24);
             trafficGroup.Controls.Add(trafficHistoryLabel);
 
@@ -1332,18 +1464,50 @@ namespace OffNet
             trafficHistoryMinutes.Minimum = 1;
             trafficHistoryMinutes.Maximum = 60;
             trafficHistoryMinutes.Value = Math.Max(1, Math.Min(60, current.TrafficHistoryMinutes));
-            trafficHistoryMinutes.Location = new Point(350, 57);
+            trafficHistoryMinutes.Location = new Point(350, 117);
             trafficHistoryMinutes.Size = new Size(85, 24);
             trafficGroup.Controls.Add(trafficHistoryMinutes);
 
             trafficMinutesLabel = new Label();
             trafficMinutesLabel.AutoSize = true;
-            trafficMinutesLabel.Location = new Point(444, 60);
+            trafficMinutesLabel.Location = new Point(444, 120);
             trafficGroup.Controls.Add(trafficMinutesLabel);
 
-            downloadLabel = AddColorRow(trafficGroup, 94, out downloadButton);
-            uploadLabel = AddColorRow(trafficGroup, 136, out uploadButton);
-            offlineActivityLabel = AddColorRow(trafficGroup, 178, out offlineActivityButton);
+            trafficSamplePointsLabel = new Label();
+            trafficSamplePointsLabel.AutoSize = false;
+            trafficSamplePointsLabel.Location = new Point(16, 150);
+            trafficSamplePointsLabel.Size = new Size(200, 24);
+            trafficGroup.Controls.Add(trafficSamplePointsLabel);
+
+            trafficSamplePointsSlider = new TrackBar();
+            trafficSamplePointsSlider.Minimum = 10;
+            trafficSamplePointsSlider.Maximum = 1000;
+            trafficSamplePointsSlider.TickFrequency = 100;
+            trafficSamplePointsSlider.SmallChange = 10;
+            trafficSamplePointsSlider.LargeChange = 100;
+            trafficSamplePointsSlider.AutoSize = false;
+            trafficSamplePointsSlider.Location = new Point(210, 145);
+            trafficSamplePointsSlider.Size = new Size(280, 34);
+            trafficSamplePointsSlider.Value = Math.Max(10, Math.Min(1000, current.TrafficSamplePoints));
+            trafficGroup.Controls.Add(trafficSamplePointsSlider);
+
+            trafficSamplePointsValue = new Label();
+            trafficSamplePointsValue.AutoSize = false;
+            trafficSamplePointsValue.TextAlign = ContentAlignment.MiddleRight;
+            trafficSamplePointsValue.Location = new Point(498, 147);
+            trafficSamplePointsValue.Size = new Size(70, 24);
+            trafficSamplePointsValue.Text = trafficSamplePointsSlider.Value.ToString(CultureInfo.InvariantCulture);
+            trafficGroup.Controls.Add(trafficSamplePointsValue);
+
+            trafficSamplePointsSlider.ValueChanged += delegate
+            {
+                trafficSamplePointsValue.Text =
+                    trafficSamplePointsSlider.Value.ToString(CultureInfo.InvariantCulture);
+            };
+
+            downloadLabel = AddColorRow(trafficGroup, 190, out downloadButton);
+            uploadLabel = AddColorRow(trafficGroup, 230, out uploadButton);
+            offlineActivityLabel = AddColorRow(trafficGroup, 270, out offlineActivityButton);
 
             downloadButton.Click += delegate { downloadColor = PickColor(downloadColor); UpdateColorButtons(); };
             uploadButton.Click += delegate { uploadColor = PickColor(uploadColor); UpdateColorButtons(); };
@@ -1351,19 +1515,19 @@ namespace OffNet
 
             trafficHintLabel = new Label();
             trafficHintLabel.AutoSize = false;
-            trafficHintLabel.Location = new Point(16, 220);
-            trafficHintLabel.Size = new Size(552, 48);
+            trafficHintLabel.Location = new Point(16, 310);
+            trafficHintLabel.Size = new Size(552, 90);
             trafficGroup.Controls.Add(trafficHintLabel);
 
             startupCheckBox = new CheckBox();
             startupCheckBox.AutoSize = false;
-            startupCheckBox.Location = new Point(18, 548);
+            startupCheckBox.Location = new Point(18, 682);
             startupCheckBox.Size = new Size(580, 34);
             startupCheckBox.Checked = startWithWindows;
             Controls.Add(startupCheckBox);
 
             defaultsButton = new Button();
-            defaultsButton.Location = new Point(16, 592);
+            defaultsButton.Location = new Point(16, 726);
             defaultsButton.Size = new Size(165, 32);
             defaultsButton.Click += delegate
             {
@@ -1375,27 +1539,36 @@ namespace OffNet
                 uploadColor = Color.DarkOrange;
                 offlineActivityColor = Color.MediumPurple;
                 trafficHistoryMinutes.Value = 10;
+                trafficSamplePointsSlider.Value = 600;
                 trafficOverviewCheckBox.Checked = false;
+                taskbarTrafficCheckBox.Checked = false;
+                SelectTaskbarFont("Segoe UI Semibold");
 
                 UpdateColorButtons();
             };
             Controls.Add(defaultsButton);
 
             projectButton = new Button();
-            projectButton.Location = new Point(190, 592);
+            projectButton.Location = new Point(190, 726);
             projectButton.Size = new Size(190, 32);
             projectButton.Click += delegate { ShellHelper.OpenProjectPage(); };
             Controls.Add(projectButton);
 
             okButton = new Button();
-            okButton.Location = new Point(414, 592);
+            okButton.Location = new Point(414, 726);
             okButton.Size = new Size(90, 32);
-            okButton.DialogResult = DialogResult.OK;
-            okButton.Click += delegate { CommitSettings(); };
+            okButton.Click += delegate
+            {
+                // Commit first, then close. This makes runtime language changes
+                // deterministic and independent of any later startup-task work.
+                CommitSettings();
+                DialogResult = DialogResult.OK;
+                Close();
+            };
             Controls.Add(okButton);
 
             cancelButton = new Button();
-            cancelButton.Location = new Point(514, 592);
+            cancelButton.Location = new Point(514, 726);
             cancelButton.Size = new Size(90, 32);
             cancelButton.DialogResult = DialogResult.Cancel;
             Controls.Add(cancelButton);
@@ -1407,6 +1580,7 @@ namespace OffNet
             colorDialog.FullOpen = true;
 
             FillLanguages(current.Language);
+            FillTaskbarFonts(current.TaskbarMeterFontName);
             languageBox.SelectedIndexChanged += delegate
             {
                 if (applyingLanguage) return;
@@ -1468,6 +1642,76 @@ namespace OffNet
             }
         }
 
+        private void FillTaskbarFonts(string selectedFont)
+        {
+            string wanted = String.IsNullOrWhiteSpace(selectedFont)
+                ? "Segoe UI Semibold"
+                : selectedFont;
+
+            taskbarFontBox.BeginUpdate();
+
+            try
+            {
+                taskbarFontBox.Items.Clear();
+
+                try
+                {
+                    using (System.Drawing.Text.InstalledFontCollection fonts =
+                        new System.Drawing.Text.InstalledFontCollection())
+                    {
+                        foreach (FontFamily family in fonts.Families)
+                        {
+                            if (!String.IsNullOrWhiteSpace(family.Name))
+                                taskbarFontBox.Items.Add(family.Name);
+                        }
+                    }
+                }
+                catch
+                {
+                    taskbarFontBox.Items.Add("Segoe UI");
+                    taskbarFontBox.Items.Add("Segoe UI Semibold");
+                    taskbarFontBox.Items.Add("Tahoma");
+                    taskbarFontBox.Items.Add("Arial");
+                    taskbarFontBox.Items.Add("Consolas");
+                }
+
+                SelectTaskbarFont(wanted);
+            }
+            finally
+            {
+                taskbarFontBox.EndUpdate();
+            }
+        }
+
+        private void SelectTaskbarFont(string fontName)
+        {
+            if (taskbarFontBox == null)
+                return;
+
+            string wanted = String.IsNullOrWhiteSpace(fontName)
+                ? "Segoe UI Semibold"
+                : fontName;
+
+            for (int i = 0; i < taskbarFontBox.Items.Count; i++)
+            {
+                string item = taskbarFontBox.Items[i] as string;
+
+                if (String.Equals(
+                    item,
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    taskbarFontBox.SelectedIndex = i;
+                    return;
+                }
+            }
+
+            // Preserve a configured font name even if Windows temporarily cannot
+            // enumerate it. The renderer still has a safe fallback.
+            taskbarFontBox.Items.Insert(0, wanted);
+            taskbarFontBox.SelectedIndex = 0;
+        }
+
         private Color PickColor(Color current)
         {
             colorDialog.Color = current;
@@ -1507,7 +1751,10 @@ namespace OffNet
 
             trafficGroup.Text = Localization.T("TrafficOverviewGroup");
             trafficOverviewCheckBox.Text = Localization.T("ShowTrafficOverview");
+            taskbarTrafficCheckBox.Text = Localization.T("ShowTaskbarTrafficMeter");
+            taskbarFontLabel.Text = Localization.T("TaskbarMeterFont");
             trafficHistoryLabel.Text = Localization.T("TrafficHistory");
+            trafficSamplePointsLabel.Text = Localization.T("TrafficSamplePoints");
             trafficMinutesLabel.Text = Localization.T("Minutes");
             downloadLabel.Text = Localization.T("DownloadColor");
             uploadLabel.Text = Localization.T("UploadColor");
@@ -1531,7 +1778,13 @@ namespace OffNet
             ResultSettings.OfflineColorArgb = offlineColor.ToArgb();
 
             ResultSettings.ShowTrafficOverview = trafficOverviewCheckBox.Checked;
+            ResultSettings.ShowTaskbarTrafficMeter = taskbarTrafficCheckBox.Checked;
+            ResultSettings.TaskbarMeterFontName =
+                taskbarFontBox.SelectedItem == null
+                    ? "Segoe UI Semibold"
+                    : taskbarFontBox.SelectedItem.ToString();
             ResultSettings.TrafficHistoryMinutes = (int)trafficHistoryMinutes.Value;
+            ResultSettings.TrafficSamplePoints = trafficSamplePointsSlider.Value;
             ResultSettings.DownloadColorArgb = downloadColor.ToArgb();
             ResultSettings.UploadColorArgb = uploadColor.ToArgb();
             ResultSettings.OfflineActivityColorArgb = offlineActivityColor.ToArgb();
@@ -1882,6 +2135,7 @@ namespace OffNet
         private DateTime nextSelectorRefreshUtc = DateTime.MinValue;
         private DateTime lastSampleUtc = DateTime.MinValue;
         private int historyMinutes = 10;
+        private int maxSamplePoints = 600;
 
         internal int HistoryMinutes
         {
@@ -1896,6 +2150,15 @@ namespace OffNet
             lock (sync)
             {
                 historyMinutes = Math.Max(1, Math.Min(60, minutes));
+                TrimHistory(DateTime.UtcNow);
+            }
+        }
+
+        internal void SetSamplePoints(int points)
+        {
+            lock (sync)
+            {
+                maxSamplePoints = Math.Max(10, Math.Min(1000, points));
                 TrimHistory(DateTime.UtcNow);
             }
         }
@@ -1925,8 +2188,16 @@ namespace OffNet
                     lastSampleUtc = now;
                 }
 
-                if (elapsedSeconds <= 0.0 || elapsedSeconds > 15.0)
+                double maximumReasonableGapSeconds =
+                    Math.Max(
+                        15.0,
+                        Math.Max(1, historyMinutes) * 60.0 * 2.0);
+
+                if (elapsedSeconds <= 0.0 ||
+                    elapsedSeconds > maximumReasonableGapSeconds)
+                {
                     elapsedSeconds = 0.0;
+                }
 
                 double downloadBytes = 0.0;
                 double uploadBytes = 0.0;
@@ -2131,6 +2402,16 @@ namespace OffNet
 
             if (removeCount > 0)
                 samples.RemoveRange(0, removeCount);
+
+            int pointLimit =
+                Math.Max(10, Math.Min(1000, maxSamplePoints));
+
+            if (samples.Count > pointLimit)
+            {
+                samples.RemoveRange(
+                    0,
+                    samples.Count - pointLimit);
+            }
         }
     }
 
@@ -2485,6 +2766,815 @@ namespace OffNet
         }
     }
 
+
+    internal static class TaskbarThemeHelper
+    {
+        internal static Color GetTextColor()
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                {
+                    if (key != null)
+                    {
+                        object value = key.GetValue("SystemUsesLightTheme");
+                        if (value != null && Convert.ToInt32(value, CultureInfo.InvariantCulture) != 0)
+                            return Color.FromArgb(28, 28, 28);
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return Color.WhiteSmoke;
+        }
+
+        internal static Color GetShadowColor(Color foreground)
+        {
+            int luminance =
+                (foreground.R * 299 +
+                 foreground.G * 587 +
+                 foreground.B * 114) / 1000;
+
+            return luminance > 128
+                ? Color.FromArgb(150, 0, 0, 0)
+                : Color.FromArgb(150, 255, 255, 255);
+        }
+    }
+
+    internal sealed class TaskbarTrafficForm : Form
+    {
+        private const int WS_EX_TRANSPARENT = 0x00000020;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+
+        private readonly TrafficMonitor monitor;
+        private readonly System.Windows.Forms.Timer positionTimer;
+        private AppSettings settings;
+        private TrayState currentState = TrayState.Yellow;
+
+        // An unusual chroma-key color keeps the entire background transparent,
+        // so the real Windows taskbar (solid, accent, acrylic, light or dark)
+        // remains visible underneath the meter.
+        private readonly Color transparencyColor =
+            Color.FromArgb(1, 2, 3);
+
+        internal TaskbarTrafficForm(
+            TrafficMonitor trafficMonitor,
+            AppSettings appSettings)
+        {
+            monitor = trafficMonitor;
+            settings = appSettings.Clone();
+
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            TopMost = true;
+            StartPosition = FormStartPosition.Manual;
+            BackColor = transparencyColor;
+            TransparencyKey = transparencyColor;
+            Size = new Size(300, 42);
+            DoubleBuffered = true;
+
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.UserPaint,
+                true);
+
+            positionTimer = new System.Windows.Forms.Timer();
+            positionTimer.Interval = 500;
+            positionTimer.Tick += delegate
+            {
+                if (Visible)
+                {
+                    RepositionToTaskbar();
+                    KeepAboveTaskbar();
+                }
+            };
+            positionTimer.Start();
+        }
+
+        protected override bool ShowWithoutActivation
+        {
+            get { return true; }
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams parameters = base.CreateParams;
+                parameters.ExStyle |=
+                    WS_EX_TOOLWINDOW |
+                    WS_EX_NOACTIVATE |
+                    WS_EX_TRANSPARENT;
+                return parameters;
+            }
+        }
+
+        internal void UpdateSettings(AppSettings appSettings)
+        {
+            settings = appSettings.Clone();
+            Invalidate();
+        }
+
+        internal void SetTrayState(TrayState state)
+        {
+            currentState = state;
+            Invalidate();
+        }
+
+        internal void SetMeterVisible(bool visible)
+        {
+            if (!visible)
+            {
+                Hide();
+                return;
+            }
+
+            RepositionToTaskbar();
+
+            if (!Visible)
+                Show();
+
+            RepositionToTaskbar();
+            KeepAboveTaskbar();
+            Invalidate();
+        }
+
+        internal void RefreshTraffic()
+        {
+            if (Visible)
+            {
+                KeepAboveTaskbar();
+                Invalidate();
+            }
+        }
+
+        private void KeepAboveTaskbar()
+        {
+            try
+            {
+                if (!Visible || !IsHandleCreated)
+                    return;
+
+                NativeMethods.SetWindowPos(
+                    Handle,
+                    NativeMethods.HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    NativeMethods.SWP_NOMOVE |
+                    NativeMethods.SWP_NOSIZE |
+                    NativeMethods.SWP_NOACTIVATE |
+                    NativeMethods.SWP_SHOWWINDOW |
+                    NativeMethods.SWP_NOOWNERZORDER);
+            }
+            catch
+            {
+                // Visual safeguard only. Z-order failures must never affect
+                // network-device control or traffic sampling.
+            }
+        }
+
+        private void RepositionToTaskbar()
+        {
+            try
+            {
+                IntPtr taskbar =
+                    NativeMethods.FindWindow("Shell_TrayWnd", null);
+
+                if (taskbar == IntPtr.Zero)
+                    return;
+
+                NativeMethods.RECT taskbarRect;
+
+                if (!NativeMethods.GetWindowRect(
+                    taskbar,
+                    out taskbarRect))
+                {
+                    return;
+                }
+
+                int taskbarWidth = taskbarRect.Width;
+                int taskbarHeight = taskbarRect.Height;
+
+                // Windows 11 only supports a horizontal taskbar. Windows 10 can
+                // still be vertical; in that uncommon case we keep a compact
+                // panel near the taskbar instead of stretching it vertically.
+                bool horizontal =
+                    taskbarWidth >= taskbarHeight;
+
+                if (horizontal)
+                {
+                    int desiredHeight =
+                        Math.Max(34, Math.Min(56, taskbarHeight - 2));
+
+                    int desiredWidth =
+                        Math.Max(330, Math.Min(420, taskbarWidth / 4));
+
+                    int x =
+                        taskbarRect.Right -
+                        desiredWidth -
+                        190;
+
+                    IntPtr trayNotify =
+                        NativeMethods.FindWindowEx(
+                            taskbar,
+                            IntPtr.Zero,
+                            "TrayNotifyWnd",
+                            null);
+
+                    if (trayNotify == IntPtr.Zero)
+                    {
+                        IntPtr rebar =
+                            NativeMethods.FindWindowEx(
+                                taskbar,
+                                IntPtr.Zero,
+                                "ReBarWindow32",
+                                null);
+
+                        if (rebar != IntPtr.Zero)
+                        {
+                            trayNotify =
+                                NativeMethods.FindWindowEx(
+                                    rebar,
+                                    IntPtr.Zero,
+                                    "TrayNotifyWnd",
+                                    null);
+                        }
+                    }
+
+                    NativeMethods.RECT trayRect;
+
+                    if (trayNotify != IntPtr.Zero &&
+                        NativeMethods.GetWindowRect(
+                            trayNotify,
+                            out trayRect) &&
+                        trayRect.Left >
+                            taskbarRect.Left +
+                            desiredWidth +
+                            20)
+                    {
+                        x = trayRect.Left - desiredWidth - 6;
+                    }
+
+                    int minimumX =
+                        taskbarRect.Left + 8;
+                    int maximumX =
+                        taskbarRect.Right -
+                        desiredWidth -
+                        8;
+
+                    x = Math.Max(
+                        minimumX,
+                        Math.Min(maximumX, x));
+
+                    int y =
+                        taskbarRect.Top +
+                        Math.Max(
+                            0,
+                            (taskbarHeight - desiredHeight) / 2);
+
+                    Bounds = new Rectangle(
+                        x,
+                        y,
+                        desiredWidth,
+                        desiredHeight);
+                }
+                else
+                {
+                    // Fallback for a Windows 10 vertical taskbar. The meter stays
+                    // adjacent to the taskbar so the graph remains readable.
+                    int desiredWidth = 270;
+                    int desiredHeight = 48;
+                    Rectangle primary =
+                        Screen.PrimaryScreen.Bounds;
+
+                    bool taskbarOnLeft =
+                        taskbarRect.Left <= primary.Left + 2;
+
+                    int x = taskbarOnLeft
+                        ? taskbarRect.Right + 2
+                        : taskbarRect.Left - desiredWidth - 2;
+
+                    int y =
+                        Math.Max(
+                            taskbarRect.Top + 8,
+                            taskbarRect.Bottom -
+                            desiredHeight -
+                            80);
+
+                    Bounds = new Rectangle(
+                        x,
+                        y,
+                        desiredWidth,
+                        desiredHeight);
+                }
+            }
+            catch
+            {
+                // The meter is optional. Positioning failures must never affect
+                // device control or the normal OffNet tray icon.
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(transparencyColor);
+            e.Graphics.SmoothingMode =
+                System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            List<TrafficSample> snapshot =
+                monitor.GetSnapshot();
+
+            TrafficSample current =
+                snapshot.Count > 0
+                    ? snapshot[snapshot.Count - 1]
+                    : null;
+
+            double download =
+                current == null ? 0.0 : current.DownloadMbps;
+
+            double upload =
+                current == null ? 0.0 : current.UploadMbps;
+
+            double offline =
+                current == null || !current.ManagedDisabled
+                    ? 0.0
+                    : current.OfflineActivityMbps;
+
+            Color downloadColor =
+                Color.FromArgb(settings.DownloadColorArgb);
+            Color uploadColor =
+                Color.FromArgb(settings.UploadColorArgb);
+            Color offlineColor =
+                Color.FromArgb(settings.OfflineActivityColorArgb);
+
+            int rightEdge = Width - 4;
+            int valueRowHeight =
+                Math.Max(17, Math.Min(21, Height / 2));
+
+            int graphTop =
+                Math.Min(Height - 13, valueRowHeight);
+
+            Rectangle graph =
+                new Rectangle(
+                    3,
+                    graphTop,
+                    Math.Max(60, rightEdge - 4),
+                    Math.Max(12, Height - graphTop - 3));
+
+            float valueFontSize =
+                Height <= 40 ? 8.0f : 8.7f;
+
+            using (Font valueFont =
+                CreateTaskbarFont(valueFontSize))
+            using (Font scaleFont =
+                CreateTaskbarFont(
+                    Math.Max(7.0f, valueFontSize - 1.1f)))
+            {
+                int valuesWidth =
+                    Math.Max(150, rightEdge - 2);
+
+                int cellWidth =
+                    Math.Max(68, valuesWidth / 3);
+
+                DrawValueCell(
+                    e.Graphics,
+                    valueFont,
+                    new Rectangle(
+                        1,
+                        0,
+                        cellWidth,
+                        valueRowHeight),
+                    "▼",
+                    download,
+                    downloadColor);
+
+                DrawValueCell(
+                    e.Graphics,
+                    valueFont,
+                    new Rectangle(
+                        1 + cellWidth,
+                        0,
+                        cellWidth,
+                        valueRowHeight),
+                    "▲",
+                    upload,
+                    uploadColor);
+
+                DrawValueCell(
+                    e.Graphics,
+                    valueFont,
+                    new Rectangle(
+                        1 + cellWidth * 2,
+                        0,
+                        Math.Max(
+                            62,
+                            valuesWidth - cellWidth * 2),
+                        valueRowHeight),
+                    "◆",
+                    offline,
+                    offlineColor);
+
+                double maxValue = 0.0;
+
+                foreach (TrafficSample sample in snapshot)
+                {
+                    maxValue = Math.Max(maxValue, sample.DownloadMbps);
+                    maxValue = Math.Max(maxValue, sample.UploadMbps);
+
+                    if (sample.ManagedDisabled)
+                    {
+                        maxValue =
+                            Math.Max(
+                                maxValue,
+                                sample.OfflineActivityMbps);
+                    }
+                }
+
+                double graphMaximum =
+                    NiceMaximum(maxValue);
+
+                Color taskbarText =
+                    TaskbarThemeHelper.GetTextColor();
+
+                Color taskbarShadow =
+                    TaskbarThemeHelper.GetShadowColor(
+                        taskbarText);
+
+                using (Pen baselinePen =
+                    new Pen(
+                        Color.FromArgb(
+                            90,
+                            taskbarText),
+                        1.0f))
+                {
+                    e.Graphics.DrawLine(
+                        baselinePen,
+                        graph.Left,
+                        graph.Bottom - 1,
+                        graph.Right,
+                        graph.Bottom - 1);
+                }
+
+                DrawCurve(
+                    e.Graphics,
+                    graph,
+                    snapshot,
+                    graphMaximum,
+                    downloadColor,
+                    0,
+                    settings.TrafficHistoryMinutes);
+
+                DrawCurve(
+                    e.Graphics,
+                    graph,
+                    snapshot,
+                    graphMaximum,
+                    uploadColor,
+                    1,
+                    settings.TrafficHistoryMinutes);
+
+                DrawCurve(
+                    e.Graphics,
+                    graph,
+                    snapshot,
+                    graphMaximum,
+                    offlineColor,
+                    2,
+                    settings.TrafficHistoryMinutes);
+
+                string maximumText =
+                    FormatMaximum(graphMaximum) +
+                    " Mbit/s";
+
+                Rectangle scaleRect =
+                    new Rectangle(
+                        graph.Left + 2,
+                        graph.Top,
+                        Math.Max(40, graph.Width - 4),
+                        Math.Max(12, graph.Height));
+
+                DrawShadowedText(
+                    e.Graphics,
+                    maximumText,
+                    scaleFont,
+                    scaleRect,
+                    taskbarText,
+                    taskbarShadow,
+                    TextFormatFlags.Right |
+                    TextFormatFlags.Top |
+                    TextFormatFlags.SingleLine |
+                    TextFormatFlags.EndEllipsis);
+            }
+
+        }
+
+        private Font CreateTaskbarFont(float size)
+        {
+            string name =
+                settings == null ||
+                String.IsNullOrWhiteSpace(settings.TaskbarMeterFontName)
+                    ? "Segoe UI Semibold"
+                    : settings.TaskbarMeterFontName;
+
+            try
+            {
+                return new Font(
+                    name,
+                    size,
+                    FontStyle.Regular,
+                    GraphicsUnit.Point);
+            }
+            catch
+            {
+                try
+                {
+                    return new Font(
+                        "Segoe UI Semibold",
+                        size,
+                        FontStyle.Regular,
+                        GraphicsUnit.Point);
+                }
+                catch
+                {
+                    return new Font(
+                        "Segoe UI",
+                        size,
+                        FontStyle.Regular,
+                        GraphicsUnit.Point);
+                }
+            }
+        }
+
+        private static void DrawValueCell(
+            Graphics graphics,
+            Font font,
+            Rectangle bounds,
+            string symbol,
+            double value,
+            Color color)
+        {
+            string text =
+                symbol +
+                " " +
+                FormatCurrentRate(value);
+
+            Color shadow =
+                TaskbarThemeHelper.GetShadowColor(color);
+
+            DrawShadowedText(
+                graphics,
+                text,
+                font,
+                bounds,
+                color,
+                shadow,
+                TextFormatFlags.Left |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.EndEllipsis);
+        }
+
+        private static void DrawShadowedText(
+            Graphics graphics,
+            string text,
+            Font font,
+            Rectangle bounds,
+            Color foreground,
+            Color shadow,
+            TextFormatFlags flags)
+        {
+            Rectangle shadowBounds =
+                new Rectangle(
+                    bounds.X + 1,
+                    bounds.Y + 1,
+                    bounds.Width,
+                    bounds.Height);
+
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                font,
+                shadowBounds,
+                shadow,
+                flags);
+
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                font,
+                bounds,
+                foreground,
+                flags);
+        }
+
+        private static void DrawCurve(
+            Graphics graphics,
+            Rectangle plot,
+            List<TrafficSample> samples,
+            double graphMaximum,
+            Color color,
+            int series,
+            int historyMinutes)
+        {
+            if (samples.Count < 2 ||
+                graphMaximum <= 0.0)
+            {
+                return;
+            }
+
+            DateTime end =
+                DateTime.UtcNow;
+
+            DateTime start =
+                end.AddMinutes(
+                    -Math.Max(
+                        1,
+                        Math.Min(
+                            60,
+                            historyMinutes)));
+
+            List<PointF> segment =
+                new List<PointF>();
+
+            using (Pen pen =
+                new Pen(color, 1.5f))
+            {
+                pen.LineJoin =
+                    System.Drawing.Drawing2D.LineJoin.Round;
+
+                foreach (TrafficSample sample in samples)
+                {
+                    if (series == 2 &&
+                        !sample.ManagedDisabled)
+                    {
+                        DrawSegment(
+                            graphics,
+                            pen,
+                            segment);
+
+                        segment.Clear();
+                        continue;
+                    }
+
+                    double fraction =
+                        (sample.TimestampUtc - start).TotalSeconds /
+                        Math.Max(
+                            1.0,
+                            (end - start).TotalSeconds);
+
+                    if (fraction < 0.0 ||
+                        fraction > 1.0)
+                    {
+                        if (series == 2)
+                        {
+                            DrawSegment(
+                                graphics,
+                                pen,
+                                segment);
+
+                            segment.Clear();
+                        }
+
+                        continue;
+                    }
+
+                    double value;
+
+                    if (series == 0)
+                        value = sample.DownloadMbps;
+                    else if (series == 1)
+                        value = sample.UploadMbps;
+                    else
+                        value = sample.OfflineActivityMbps;
+
+                    value =
+                        Math.Max(
+                            0.0,
+                            Math.Min(
+                                graphMaximum,
+                                value));
+
+                    float x =
+                        plot.Left +
+                        (float)(
+                            fraction *
+                            Math.Max(
+                                1,
+                                plot.Width - 1));
+
+                    float y =
+                        plot.Bottom -
+                        1 -
+                        (float)(
+                            (value /
+                             graphMaximum) *
+                            Math.Max(
+                                1,
+                                plot.Height - 2));
+
+                    segment.Add(
+                        new PointF(
+                            x,
+                            y));
+                }
+
+                DrawSegment(
+                    graphics,
+                    pen,
+                    segment);
+            }
+        }
+
+        private static void DrawSegment(
+            Graphics graphics,
+            Pen pen,
+            List<PointF> segment)
+        {
+            if (segment.Count >= 2)
+            {
+                graphics.DrawLines(
+                    pen,
+                    segment.ToArray());
+            }
+        }
+
+        private static double NiceMaximum(double value)
+        {
+            if (value <= 0.08)
+                return 0.1;
+
+            double exponent =
+                Math.Pow(
+                    10.0,
+                    Math.Floor(
+                        Math.Log10(value)));
+
+            double normalized =
+                value / exponent;
+
+            double nice;
+
+            if (normalized <= 1.0)
+                nice = 1.0;
+            else if (normalized <= 2.0)
+                nice = 2.0;
+            else if (normalized <= 5.0)
+                nice = 5.0;
+            else
+                nice = 10.0;
+
+            return nice * exponent;
+        }
+
+        private static string FormatCurrentRate(double value)
+        {
+            if (value < 100.0)
+            {
+                return value.ToString(
+                    "0.0",
+                    CultureInfo.CurrentCulture) +
+                    " Mbit";
+            }
+
+            return value.ToString(
+                "0",
+                CultureInfo.CurrentCulture) +
+                " Mbit";
+        }
+
+        private static string FormatMaximum(double value)
+        {
+            if (value < 10.0)
+            {
+                return value.ToString(
+                    "0.0",
+                    CultureInfo.CurrentCulture);
+            }
+
+            return value.ToString(
+                "0",
+                CultureInfo.CurrentCulture);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing &&
+                positionTimer != null)
+            {
+                positionTimer.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
+
     internal sealed class OffNetApplicationContext : ApplicationContext, IDisposable
     {
         private readonly NotifyIcon trayIcon;
@@ -2501,6 +3591,7 @@ namespace OffNet
         private readonly System.Windows.Forms.Timer trafficTimer;
         private readonly TrafficMonitor trafficMonitor;
         private readonly TrafficGraphControl trafficGraph;
+        private readonly TaskbarTrafficForm taskbarTrafficForm;
         private readonly ToolStripControlHost trafficHost;
         private readonly ToolStripSeparator trafficSeparator;
 
@@ -2521,7 +3612,9 @@ namespace OffNet
 
             trafficMonitor = new TrafficMonitor();
             trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+            trafficMonitor.SetSamplePoints(settings.TrafficSamplePoints);
             trafficGraph = new TrafficGraphControl(trafficMonitor, settings);
+            taskbarTrafficForm = new TaskbarTrafficForm(trafficMonitor, settings);
 
             trayMenu = new ContextMenuStrip();
             // Explicit AutoClose is important for a tray menu opened manually by
@@ -2605,6 +3698,7 @@ namespace OffNet
             trayIcon.DoubleClick += delegate { ShowMainWindow(); };
 
             UpdateTrafficOverviewVisibility();
+            UpdateTaskbarTrafficVisibility();
 
             ApplyLocalization();
             mainWindow.RefreshDevices();
@@ -2633,11 +3727,11 @@ namespace OffNet
             blinkTimer.Start();
 
             trafficTimer = new System.Windows.Forms.Timer();
-            trafficTimer.Interval = 1000;
+            trafficTimer.Interval = CalculateTrafficSampleIntervalMilliseconds(settings);
             trafficTimer.Tick += delegate { SampleTraffic(); };
             trafficTimer.Start();
 
-            if (settings.ShowTrafficOverview)
+            if (settings.ShowTrafficOverview || settings.ShowTaskbarTrafficMeter)
                 SampleTraffic();
         }
 
@@ -2653,6 +3747,7 @@ namespace OffNet
             exitItem.Text = Localization.T("TrayExit");
             mainWindow.ApplyLocalization();
             trafficGraph.UpdateSettings(settings);
+            taskbarTrafficForm.UpdateSettings(settings);
             UpdateTrayState();
         }
 
@@ -2677,38 +3772,54 @@ namespace OffNet
                 DialogResult result = form.ShowDialog(mainWindow.Visible ? mainWindow : null);
                 if (result == DialogResult.OK)
                 {
-                    bool trafficWasEnabled = settings.ShowTrafficOverview;
+                    bool trafficWasEnabled =
+                        settings.ShowTrafficOverview ||
+                        settings.ShowTaskbarTrafficMeter;
+                    bool startupRequested = form.ResultStartWithWindows;
+                    bool startupChanged = startupRequested != startupEnabled;
 
+                    // Normal OffNet settings are committed first and are completely
+                    // independent from Windows Task Scheduler. A startup-task failure
+                    // must never block language, colors, graph settings, etc.
                     settings = form.ResultSettings.Clone();
                     Localization.SetLanguage(settings.Language);
                     ConfigurationStore.SaveSettings(settings);
 
-                    trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+                    ApplyTrafficSamplingSettings();
                     trafficGraph.UpdateSettings(settings);
+                    taskbarTrafficForm.UpdateSettings(settings);
 
-                    if (!trafficWasEnabled && settings.ShowTrafficOverview)
+                    bool trafficIsEnabled =
+                        settings.ShowTrafficOverview ||
+                        settings.ShowTaskbarTrafficMeter;
+
+                    if (!trafficWasEnabled && trafficIsEnabled)
                         trafficMonitor.ResetCounters();
 
                     UpdateTrafficOverviewVisibility();
-
-                    try
-                    {
-                        // Re-register even when already enabled so moving OffNet.exe to a
-                        // new folder automatically refreshes the scheduled-task path.
-                        StartupManager.SetEnabled(form.ResultStartWithWindows);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(
-                            Localization.F("StartupChangeFailed", ex.Message),
-                            Program.AppName,
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Error);
-                    }
-
+                    UpdateTaskbarTrafficVisibility();
                     RecreateIcons();
                     ApplyLocalization();
                     mainWindow.RefreshDevices();
+
+                    // Touch Task Scheduler only when the user actually changed the
+                    // autostart checkbox. Merely changing language or colors must not
+                    // re-register the startup task.
+                    if (startupChanged)
+                    {
+                        try
+                        {
+                            StartupManager.SetEnabled(startupRequested);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(
+                                Localization.F("StartupChangeFailed", ex.Message),
+                                Program.AppName,
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                        }
+                    }
                 }
                 else
                 {
@@ -2730,7 +3841,27 @@ namespace OffNet
             if (visible)
             {
                 trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+                trafficMonitor.SetSamplePoints(settings.TrafficSamplePoints);
                 trafficGraph.UpdateSettings(settings);
+            }
+        }
+
+        private void UpdateTaskbarTrafficVisibility()
+        {
+            bool visible =
+                settings != null &&
+                settings.ShowTaskbarTrafficMeter;
+
+            taskbarTrafficForm.UpdateSettings(settings);
+            taskbarTrafficForm.SetTrayState(currentState);
+            taskbarTrafficForm.SetMeterVisible(visible);
+
+            if (visible)
+            {
+                trafficMonitor.SetHistoryMinutes(
+                    settings.TrafficHistoryMinutes);
+                trafficMonitor.SetSamplePoints(
+                    settings.TrafficSamplePoints);
             }
         }
 
@@ -2761,10 +3892,68 @@ namespace OffNet
             trayMenu.Show(Cursor.Position);
         }
 
+        private static int CalculateTrafficSampleIntervalMilliseconds(
+            AppSettings appSettings)
+        {
+            int minutes =
+                Math.Max(
+                    1,
+                    Math.Min(
+                        60,
+                        appSettings == null
+                            ? 10
+                            : appSettings.TrafficHistoryMinutes));
+
+            int points =
+                Math.Max(
+                    10,
+                    Math.Min(
+                        1000,
+                        appSettings == null
+                            ? 600
+                            : appSettings.TrafficSamplePoints));
+
+            // Spread the requested number of samples across the complete rolling
+            // history. With the supported 1..60 minute / 10..1000 ranges this
+            // naturally produces intervals between 60 ms and 360,000 ms.
+            double milliseconds =
+                (minutes * 60.0 * 1000.0) /
+                points;
+
+            return Math.Max(
+                60,
+                Math.Min(
+                    360000,
+                    (int)Math.Round(milliseconds)));
+        }
+
+        private void ApplyTrafficSamplingSettings()
+        {
+            if (settings == null)
+                return;
+
+            trafficMonitor.SetHistoryMinutes(
+                settings.TrafficHistoryMinutes);
+
+            trafficMonitor.SetSamplePoints(
+                settings.TrafficSamplePoints);
+
+            if (trafficTimer != null)
+            {
+                trafficTimer.Interval =
+                    CalculateTrafficSampleIntervalMilliseconds(
+                        settings);
+            }
+        }
+
         private void SampleTraffic()
         {
-            if (settings == null || !settings.ShowTrafficOverview)
+            if (settings == null ||
+                (!settings.ShowTrafficOverview &&
+                 !settings.ShowTaskbarTrafficMeter))
+            {
                 return;
+            }
 
             HashSet<string> ids = ManagedIds;
 
@@ -2779,6 +3968,9 @@ namespace OffNet
 
             if (trayMenu.Visible && trafficHost.Visible)
                 trafficGraph.Invalidate();
+
+            if (settings.ShowTaskbarTrafficMeter)
+                taskbarTrafficForm.RefreshTraffic();
         }
 
         private void CreateIcons()
@@ -2813,6 +4005,7 @@ namespace OffNet
             {
                 ManagedState state = DeviceManager.GetManagedState(ManagedIds);
                 currentState = state.State;
+                taskbarTrafficForm.SetTrayState(currentState);
                 activateItem.Enabled = state.DisabledCount > 0 || state.MissingCount > 0;
                 disableItem.Enabled = state.EnabledCount > 0;
                 reconnectItem.Enabled = state.EnabledCount > 0;
@@ -2836,6 +4029,7 @@ namespace OffNet
             catch
             {
                 currentState = TrayState.Yellow;
+                taskbarTrafficForm.SetTrayState(currentState);
                 trayIcon.Icon = offlineIconA;
                 trayIcon.Text = TrimTrayText(Localization.T("TrayStatusUnknown"));
             }
@@ -2951,6 +4145,7 @@ namespace OffNet
             blinkTimer.Stop();
             trafficTimer.Stop();
             trayIcon.Visible = false;
+            taskbarTrafficForm.SetMeterVisible(false);
             mainWindow.Close();
             ExitThread();
         }
@@ -2967,6 +4162,7 @@ namespace OffNet
                     if (trayIcon != null) trayIcon.Dispose();
                     if (trayMenu != null) trayMenu.Dispose();
                     if (mainWindow != null) mainWindow.Dispose();
+                    if (taskbarTrafficForm != null) taskbarTrafficForm.Dispose();
                     if (activeIcon != null) activeIcon.Dispose();
                     if (disabledIcon != null) disabledIcon.Dispose();
                     if (offlineIconA != null) offlineIconA.Dispose();

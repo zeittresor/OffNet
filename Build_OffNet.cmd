@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-title OffNet 1.2.0 - Build
+title OffNet 1.3.3 - Build
 
 echo ============================================================
-echo   OffNet 1.2.0
+echo   OffNet 1.3.3
 echo   C# / WinForms - Windows 10/11 Build
 echo   https://github.com/zeittresor/OffNet
 echo ============================================================
