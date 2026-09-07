@@ -6,7 +6,7 @@ Project page: **https://github.com/zeittresor/OffNet**
 
 ## Features
 
-- Small native-style C# / WinForms application; no Electron or browser runtime.
+- Small C# / WinForms application; no Electron or browser runtime.
 - Uses Windows SetupAPI / Configuration Manager APIs for network-device control.
 - Persistent device disable through `CM_Disable_DevNode(..., CM_DISABLE_PERSIST)`.
 - Tray status indicator:
@@ -16,9 +16,10 @@ Project page: **https://github.com/zeittresor/OffNet**
 - Tray actions: **Activate**, **Disable**, and **Reconnect**.
 - Reconnect runs DHCP release/renew for IPv4 and IPv6 without showing a console window.
 - Per-device **Tray control** selection so physical adapters can be managed without disabling every WAN miniport or virtual adapter.
-- Options dialog accessible directly from the tray menu.
+- Optional rolling traffic graph directly inside the tray menu.
 - UI languages: **English (default)**, **German**, and **French**.
-- Configurable colors for all three tray states.
+- Configurable tray-state colors and traffic-graph colors.
+- Optional automatic startup at Windows sign-in.
 - Project link available from the Options dialog.
 - No telemetry and no cloud dependency.
 - MIT licensed.
@@ -31,7 +32,7 @@ Software running with ordinary user privileges cannot simply re-enable such a de
 
 ## Tray menu
 
-A left click on the tray circle opens a deliberately compact menu:
+A **left or right click** on the tray circle opens the same deliberately compact context menu:
 
 - Activate
 - Disable
@@ -40,27 +41,51 @@ A left click on the tray circle opens a deliberately compact menu:
 - Options...
 - Exit
 
-The project link is intentionally kept inside **Options** rather than the tray menu.
-Windows Device Manager remains accessible from the main OffNet window.
+If the optional traffic overview is enabled, its graph is shown above these actions.
+
+The context menu uses normal Windows popup behavior: clicking anywhere outside it closes the menu immediately.
+
+The project link is intentionally kept inside **Options** rather than the tray menu. Windows Device Manager remains accessible from the main OffNet window.
+
+## Optional traffic overview
+
+The tray menu can display a continuously updated rolling traffic graph.
+
+Default history length: **10 minutes**
+
+The history length is configurable in **Options** from **1 to 60 minutes**.
+
+Three independently colored curves are available:
+
+- **Download** — receive throughput on OffNet-managed network adapters, in Mbit/s.
+- **Upload** — send throughput on OffNet-managed network adapters, in Mbit/s.
+- **Offline activity** — combined receive + send throughput on other active adapters, but only during periods in which all OffNet-managed adapters are disabled.
+
+Download and upload share the same graph and can overlap. Their separate colors make them distinguishable.
+
+The third curve is intentionally shown only for disabled periods. This makes it possible to notice traffic through another adapter even though the adapters controlled by OffNet are supposed to be offline.
+
+Traffic is sampled once per second while the overview option is enabled. The default 10-minute history therefore keeps only about 600 samples in memory.
+
+No external server is contacted for the traffic graph. OffNet reads local Windows network-interface byte counters.
 
 ## Options
 
 The **Options** dialog allows you to change:
 
 - Language: English / German / French
-- Active + Internet circle color
-- Disabled circle color
-- Active but no Internet circle color
+- Active + Internet tray-circle color
+- Disabled tray-circle color
+- Active but no Internet tray-circle color
+- Show or hide the traffic overview in the tray menu
+- Traffic history length
+- Download curve color
+- Upload curve color
+- Offline-activity curve color
 - Start OffNet automatically when you sign in to Windows
 - Open the OffNet project page on GitHub
 
-### Automatic startup
-
-Because OffNet needs elevated privileges for PnP/driver-level device control, the automatic-start option does **not** use the ordinary Startup folder or `HKCU\...\Run` registry value. Instead, OffNet registers a per-user Windows Task Scheduler task with an **At log on** trigger and **highest privileges**. Disabling the checkbox removes that task.
-
-The task points to the current `OffNet.exe`. Saving Options while automatic startup is enabled refreshes the path automatically if the application was moved.
-
-The no-Internet state blinks between the chosen color and a lighter version of the same color.
+The no-Internet tray state blinks between the chosen color and a lighter version of the same color.
 
 Settings are stored in:
 
@@ -73,6 +98,12 @@ Managed device instance IDs are stored separately in:
 ```text
 %LOCALAPPDATA%\OffNet\managed_devices.txt
 ```
+
+## Automatic startup
+
+Because OffNet needs elevated privileges for PnP/driver-level device control, the automatic-start option does **not** use the ordinary Startup folder or `HKCU\...\Run` registry value. Instead, OffNet registers a per-user Windows Task Scheduler task with an **At log on** trigger and **highest privileges**. Disabling the checkbox removes that task.
+
+The task points to the current `OffNet.exe`. Saving Options while automatic startup is enabled refreshes the path automatically if the application was moved.
 
 ## Build
 
