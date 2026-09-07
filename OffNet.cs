@@ -1,5 +1,5 @@
 ﻿/*
- * OffNet 1.1.2
+ * OffNet 1.2.0
  * Lightweight Windows 10/11 network-device tray controller.
  *
  * Project: https://github.com/zeittresor/OffNet
@@ -18,6 +18,8 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Net.NetworkInformation;
+using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
@@ -29,7 +31,7 @@ namespace OffNet
     internal static class Program
     {
         internal const string AppName = "OffNet";
-        internal const string Version = "1.1.2";
+        internal const string Version = "1.2.0";
         internal const string ProjectUrl = "https://github.com/zeittresor/OffNet";
 
         [STAThread]
@@ -91,6 +93,13 @@ namespace OffNet
         internal int DisabledColorArgb = Color.Red.ToArgb();
         internal int OfflineColorArgb = Color.Gold.ToArgb();
 
+        // Optional tray traffic overview. Disabled by default to keep the tray menu slim.
+        internal bool ShowTrafficOverview = false;
+        internal int TrafficHistoryMinutes = 10;
+        internal int DownloadColorArgb = Color.DodgerBlue.ToArgb();
+        internal int UploadColorArgb = Color.DarkOrange.ToArgb();
+        internal int OfflineActivityColorArgb = Color.MediumPurple.ToArgb();
+
         internal AppSettings Clone()
         {
             AppSettings copy = new AppSettings();
@@ -98,6 +107,11 @@ namespace OffNet
             copy.ActiveColorArgb = ActiveColorArgb;
             copy.DisabledColorArgb = DisabledColorArgb;
             copy.OfflineColorArgb = OfflineColorArgb;
+            copy.ShowTrafficOverview = ShowTrafficOverview;
+            copy.TrafficHistoryMinutes = TrafficHistoryMinutes;
+            copy.DownloadColorArgb = DownloadColorArgb;
+            copy.UploadColorArgb = UploadColorArgb;
+            copy.OfflineActivityColorArgb = OfflineActivityColorArgb;
             return copy;
         }
     }
@@ -181,6 +195,20 @@ namespace OffNet
                 {"OpenProject", "Open project page"},
                 {"OptionsHint", "The offline color blinks between the selected color and a lighter shade."},
                 {"StartWithWindows", "Start OffNet automatically when I sign in to Windows"},
+                {"TrafficOverviewGroup", "Traffic overview"},
+                {"ShowTrafficOverview", "Show traffic overview in the tray menu"},
+                {"TrafficHistory", "History length"},
+                {"Minutes", "minutes"},
+                {"DownloadColor", "Download"},
+                {"UploadColor", "Upload"},
+                {"OfflineActivityColor", "Offline activity"},
+                {"TrafficOptionsHint", "Offline activity shows traffic on other active adapters while all OffNet-managed adapters are disabled."},
+                {"TrafficGraphTitle", "Network throughput — last {0} min"},
+                {"TrafficDownload", "Download"},
+                {"TrafficUpload", "Upload"},
+                {"TrafficOfflineActivity", "Offline activity"},
+                {"TrafficCollecting", "Collecting traffic history..."},
+
                 {"StartupChangeFailed", "The Windows startup setting could not be changed.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Cancel"},
@@ -265,6 +293,20 @@ namespace OffNet
                 {"OpenProject", "Projektseite öffnen"},
                 {"OptionsHint", "Die Offline-Farbe blinkt zwischen der gewählten Farbe und einem helleren Farbton."},
                 {"StartWithWindows", "OffNet bei der Windows-Anmeldung automatisch starten"},
+                {"TrafficOverviewGroup", "Datenverkehr-Übersicht"},
+                {"ShowTrafficOverview", "Datenverkehr-Übersicht im Tray-Menü anzeigen"},
+                {"TrafficHistory", "Verlaufsdauer"},
+                {"Minutes", "Minuten"},
+                {"DownloadColor", "Download"},
+                {"UploadColor", "Upload"},
+                {"OfflineActivityColor", "Offline-Aktivität"},
+                {"TrafficOptionsHint", "Offline-Aktivität zeigt Datenverkehr auf anderen aktiven Adaptern, während alle von OffNet verwalteten Adapter deaktiviert sind."},
+                {"TrafficGraphTitle", "Netzwerkdurchsatz — letzte {0} Min."},
+                {"TrafficDownload", "Download"},
+                {"TrafficUpload", "Upload"},
+                {"TrafficOfflineActivity", "Offline-Aktivität"},
+                {"TrafficCollecting", "Datenverkehrsverlauf wird gesammelt..."},
+
                 {"StartupChangeFailed", "Die Windows-Autostart-Einstellung konnte nicht geändert werden.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Abbrechen"},
@@ -349,6 +391,20 @@ namespace OffNet
                 {"OpenProject", "Ouvrir la page du projet"},
                 {"OptionsHint", "La couleur hors ligne clignote entre la couleur choisie et une teinte plus claire."},
                 {"StartWithWindows", "Démarrer OffNet automatiquement à l’ouverture de session Windows"},
+                {"TrafficOverviewGroup", "Aperçu du trafic"},
+                {"ShowTrafficOverview", "Afficher l’aperçu du trafic dans le menu de la zone de notification"},
+                {"TrafficHistory", "Durée de l’historique"},
+                {"Minutes", "minutes"},
+                {"DownloadColor", "Téléchargement"},
+                {"UploadColor", "Envoi"},
+                {"OfflineActivityColor", "Activité hors ligne"},
+                {"TrafficOptionsHint", "L’activité hors ligne montre le trafic sur d’autres adaptateurs actifs lorsque tous les adaptateurs gérés par OffNet sont désactivés."},
+                {"TrafficGraphTitle", "Débit réseau — {0} dernières min"},
+                {"TrafficDownload", "Téléchargement"},
+                {"TrafficUpload", "Envoi"},
+                {"TrafficOfflineActivity", "Activité hors ligne"},
+                {"TrafficCollecting", "Collecte de l’historique du trafic..."},
+
                 {"StartupChangeFailed", "Le paramètre de démarrage automatique de Windows n’a pas pu être modifié.\r\n\r\n{0}"},
                 {"OK", "OK"},
                 {"Cancel", "Annuler"},
@@ -398,6 +454,7 @@ namespace OffNet
         internal string Name;
         internal string Manufacturer;
         internal string InstanceId;
+        internal string NetCfgInstanceId;
         internal bool IsHardware;
         internal bool IsPresent;
         internal bool IsDisabled;
@@ -512,10 +569,17 @@ namespace OffNet
                     string key = line.Substring(0, split).Trim().ToLowerInvariant();
                     string value = line.Substring(split + 1).Trim();
                     int colorValue;
+                    int intValue;
+                    bool boolValue;
                     if (key == "language") settings.Language = value;
                     else if (key == "active_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.ActiveColorArgb = colorValue;
                     else if (key == "disabled_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DisabledColorArgb = colorValue;
                     else if (key == "offline_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.OfflineColorArgb = colorValue;
+                    else if (key == "show_traffic_overview" && Boolean.TryParse(value, out boolValue)) settings.ShowTrafficOverview = boolValue;
+                    else if (key == "traffic_history_minutes" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficHistoryMinutes = Math.Max(1, Math.Min(60, intValue));
+                    else if (key == "download_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DownloadColorArgb = colorValue;
+                    else if (key == "upload_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.UploadColorArgb = colorValue;
+                    else if (key == "offline_activity_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.OfflineActivityColorArgb = colorValue;
                 }
             }
             catch { }
@@ -535,6 +599,11 @@ namespace OffNet
             lines.Add("active_color=" + settings.ActiveColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("disabled_color=" + settings.DisabledColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("offline_color=" + settings.OfflineColorArgb.ToString(CultureInfo.InvariantCulture));
+            lines.Add("show_traffic_overview=" + (settings.ShowTrafficOverview ? "true" : "false"));
+            lines.Add("traffic_history_minutes=" + settings.TrafficHistoryMinutes.ToString(CultureInfo.InvariantCulture));
+            lines.Add("download_color=" + settings.DownloadColorArgb.ToString(CultureInfo.InvariantCulture));
+            lines.Add("upload_color=" + settings.UploadColorArgb.ToString(CultureInfo.InvariantCulture));
+            lines.Add("offline_activity_color=" + settings.OfflineActivityColorArgb.ToString(CultureInfo.InvariantCulture));
             File.WriteAllLines(SettingsFile, lines.ToArray(), new UTF8Encoding(false));
         }
     }
@@ -546,6 +615,7 @@ namespace OffNet
         internal const uint SPDRP_DEVICEDESC = 0x00000000;
         internal const uint SPDRP_MFG = 0x0000000B;
         internal const uint SPDRP_FRIENDLYNAME = 0x0000000C;
+        internal const uint SPDRP_DRIVER = 0x00000009;
         internal const uint CM_DISABLE_PERSIST = 0x00000001;
         internal const uint CR_SUCCESS = 0x00000000;
         internal const uint CM_PROB_DISABLED = 22;
@@ -595,6 +665,10 @@ namespace OffNet
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool DestroyIcon(IntPtr hIcon);
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetForegroundWindow(IntPtr hWnd);
+
         [DllImport("wininet.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool InternetGetConnectedState(out int lpdwConnection, int dwReserved);
@@ -633,6 +707,7 @@ namespace OffNet
                     if (String.IsNullOrWhiteSpace(device.Name)) device.Name = GetStringProperty(set, ref data, NativeMethods.SPDRP_DEVICEDESC);
                     if (String.IsNullOrWhiteSpace(device.Name)) device.Name = device.InstanceId;
                     device.Manufacturer = GetStringProperty(set, ref data, NativeMethods.SPDRP_MFG);
+                    device.NetCfgInstanceId = GetNetCfgInstanceId(set, ref data);
                     device.IsHardware = LooksLikePhysicalHardware(device.InstanceId);
 
                     uint status;
@@ -693,6 +768,56 @@ namespace OffNet
             if (length <= 0) return String.Empty;
             string value = Encoding.Unicode.GetString(buffer, 0, length);
             return value.TrimEnd('\0').Trim();
+        }
+
+        private static string GetNetCfgInstanceId(IntPtr set, ref NativeMethods.SP_DEVINFO_DATA data)
+        {
+            try
+            {
+                string driverKey = GetStringProperty(set, ref data, NativeMethods.SPDRP_DRIVER);
+                if (String.IsNullOrWhiteSpace(driverKey)) return String.Empty;
+
+                string path = @"SYSTEM\CurrentControlSet\Control\Class\" + driverKey;
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(path))
+                {
+                    if (key == null) return String.Empty;
+                    object value = key.GetValue("NetCfgInstanceId");
+                    return value == null ? String.Empty : NormalizeNetworkInterfaceId(value.ToString());
+                }
+            }
+            catch
+            {
+                return String.Empty;
+            }
+        }
+
+        internal static string NormalizeNetworkInterfaceId(string value)
+        {
+            if (String.IsNullOrWhiteSpace(value)) return String.Empty;
+            return value.Trim().Trim('{', '}').ToUpperInvariant();
+        }
+
+        internal static void GetManagedInterfaceSelectors(
+            HashSet<string> managedDeviceIds,
+            out HashSet<string> networkInterfaceIds,
+            out HashSet<string> descriptions)
+        {
+            networkInterfaceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            descriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (managedDeviceIds == null || managedDeviceIds.Count == 0) return;
+
+            List<DeviceInfo> devices = EnumerateNetworkDevices(false);
+            foreach (DeviceInfo device in devices)
+            {
+                if (!managedDeviceIds.Contains(device.InstanceId)) continue;
+
+                if (!String.IsNullOrWhiteSpace(device.NetCfgInstanceId))
+                    networkInterfaceIds.Add(NormalizeNetworkInterfaceId(device.NetCfgInstanceId));
+
+                if (!String.IsNullOrWhiteSpace(device.Name))
+                    descriptions.Add(device.Name.Trim());
+            }
         }
 
         internal static bool LooksLikePhysicalHardware(string instanceId)
@@ -1092,15 +1217,30 @@ namespace OffNet
     {
         private readonly ComboBox languageBox;
         private readonly Label languageLabel;
+
         private readonly GroupBox colorsGroup;
         private readonly Label activeLabel;
         private readonly Label disabledLabel;
         private readonly Label offlineLabel;
         private readonly Label hintLabel;
-        private readonly CheckBox startupCheckBox;
         private Button activeButton;
         private Button disabledButton;
         private Button offlineButton;
+
+        private readonly GroupBox trafficGroup;
+        private readonly CheckBox trafficOverviewCheckBox;
+        private readonly Label trafficHistoryLabel;
+        private readonly NumericUpDown trafficHistoryMinutes;
+        private readonly Label trafficMinutesLabel;
+        private readonly Label downloadLabel;
+        private readonly Label uploadLabel;
+        private readonly Label offlineActivityLabel;
+        private readonly Label trafficHintLabel;
+        private Button downloadButton;
+        private Button uploadButton;
+        private Button offlineActivityButton;
+
+        private readonly CheckBox startupCheckBox;
         private readonly Button defaultsButton;
         private readonly Button projectButton;
         private readonly Button okButton;
@@ -1110,6 +1250,9 @@ namespace OffNet
         private Color activeColor;
         private Color disabledColor;
         private Color offlineColor;
+        private Color downloadColor;
+        private Color uploadColor;
+        private Color offlineActivityColor;
         private bool applyingLanguage;
 
         internal AppSettings ResultSettings { get; private set; }
@@ -1118,9 +1261,14 @@ namespace OffNet
         internal OptionsForm(AppSettings current, bool startWithWindows)
         {
             ResultSettings = current.Clone();
+
             activeColor = Color.FromArgb(current.ActiveColorArgb);
             disabledColor = Color.FromArgb(current.DisabledColorArgb);
             offlineColor = Color.FromArgb(current.OfflineColorArgb);
+            downloadColor = Color.FromArgb(current.DownloadColorArgb);
+            uploadColor = Color.FromArgb(current.UploadColorArgb);
+            offlineActivityColor = Color.FromArgb(current.OfflineActivityColorArgb);
+
             ResultStartWithWindows = startWithWindows;
 
             StartPosition = FormStartPosition.CenterParent;
@@ -1128,8 +1276,8 @@ namespace OffNet
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            Width = 535;
-            Height = 455;
+            Width = 640;
+            Height = 710;
             Font = new Font("Segoe UI", 9.0f);
 
             languageLabel = new Label();
@@ -1139,13 +1287,13 @@ namespace OffNet
 
             languageBox = new ComboBox();
             languageBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            languageBox.Location = new Point(165, 18);
-            languageBox.Width = 320;
+            languageBox.Location = new Point(210, 18);
+            languageBox.Width = 385;
             Controls.Add(languageBox);
 
             colorsGroup = new GroupBox();
             colorsGroup.Location = new Point(16, 62);
-            colorsGroup.Size = new Size(474, 190);
+            colorsGroup.Size = new Size(588, 190);
             Controls.Add(colorsGroup);
 
             activeLabel = AddColorRow(colorsGroup, 28, out activeButton);
@@ -1155,53 +1303,106 @@ namespace OffNet
             hintLabel = new Label();
             hintLabel.AutoSize = false;
             hintLabel.Location = new Point(16, 153);
-            hintLabel.Size = new Size(440, 30);
+            hintLabel.Size = new Size(552, 30);
             colorsGroup.Controls.Add(hintLabel);
 
             activeButton.Click += delegate { activeColor = PickColor(activeColor); UpdateColorButtons(); };
             disabledButton.Click += delegate { disabledColor = PickColor(disabledColor); UpdateColorButtons(); };
             offlineButton.Click += delegate { offlineColor = PickColor(offlineColor); UpdateColorButtons(); };
 
+            trafficGroup = new GroupBox();
+            trafficGroup.Location = new Point(16, 262);
+            trafficGroup.Size = new Size(588, 278);
+            Controls.Add(trafficGroup);
+
+            trafficOverviewCheckBox = new CheckBox();
+            trafficOverviewCheckBox.AutoSize = false;
+            trafficOverviewCheckBox.Location = new Point(16, 24);
+            trafficOverviewCheckBox.Size = new Size(552, 26);
+            trafficOverviewCheckBox.Checked = current.ShowTrafficOverview;
+            trafficGroup.Controls.Add(trafficOverviewCheckBox);
+
+            trafficHistoryLabel = new Label();
+            trafficHistoryLabel.AutoSize = false;
+            trafficHistoryLabel.Location = new Point(16, 60);
+            trafficHistoryLabel.Size = new Size(300, 24);
+            trafficGroup.Controls.Add(trafficHistoryLabel);
+
+            trafficHistoryMinutes = new NumericUpDown();
+            trafficHistoryMinutes.Minimum = 1;
+            trafficHistoryMinutes.Maximum = 60;
+            trafficHistoryMinutes.Value = Math.Max(1, Math.Min(60, current.TrafficHistoryMinutes));
+            trafficHistoryMinutes.Location = new Point(350, 57);
+            trafficHistoryMinutes.Size = new Size(85, 24);
+            trafficGroup.Controls.Add(trafficHistoryMinutes);
+
+            trafficMinutesLabel = new Label();
+            trafficMinutesLabel.AutoSize = true;
+            trafficMinutesLabel.Location = new Point(444, 60);
+            trafficGroup.Controls.Add(trafficMinutesLabel);
+
+            downloadLabel = AddColorRow(trafficGroup, 94, out downloadButton);
+            uploadLabel = AddColorRow(trafficGroup, 136, out uploadButton);
+            offlineActivityLabel = AddColorRow(trafficGroup, 178, out offlineActivityButton);
+
+            downloadButton.Click += delegate { downloadColor = PickColor(downloadColor); UpdateColorButtons(); };
+            uploadButton.Click += delegate { uploadColor = PickColor(uploadColor); UpdateColorButtons(); };
+            offlineActivityButton.Click += delegate { offlineActivityColor = PickColor(offlineActivityColor); UpdateColorButtons(); };
+
+            trafficHintLabel = new Label();
+            trafficHintLabel.AutoSize = false;
+            trafficHintLabel.Location = new Point(16, 220);
+            trafficHintLabel.Size = new Size(552, 48);
+            trafficGroup.Controls.Add(trafficHintLabel);
+
             startupCheckBox = new CheckBox();
             startupCheckBox.AutoSize = false;
-            startupCheckBox.Location = new Point(18, 263);
-            startupCheckBox.Size = new Size(468, 34);
+            startupCheckBox.Location = new Point(18, 548);
+            startupCheckBox.Size = new Size(580, 34);
             startupCheckBox.Checked = startWithWindows;
             Controls.Add(startupCheckBox);
 
             defaultsButton = new Button();
-            defaultsButton.Location = new Point(16, 308);
-            defaultsButton.Size = new Size(160, 32);
+            defaultsButton.Location = new Point(16, 592);
+            defaultsButton.Size = new Size(165, 32);
             defaultsButton.Click += delegate
             {
                 activeColor = Color.LimeGreen;
                 disabledColor = Color.Red;
                 offlineColor = Color.Gold;
+
+                downloadColor = Color.DodgerBlue;
+                uploadColor = Color.DarkOrange;
+                offlineActivityColor = Color.MediumPurple;
+                trafficHistoryMinutes.Value = 10;
+                trafficOverviewCheckBox.Checked = false;
+
                 UpdateColorButtons();
             };
             Controls.Add(defaultsButton);
 
             projectButton = new Button();
-            projectButton.Location = new Point(184, 308);
-            projectButton.Size = new Size(180, 32);
+            projectButton.Location = new Point(190, 592);
+            projectButton.Size = new Size(190, 32);
             projectButton.Click += delegate { ShellHelper.OpenProjectPage(); };
             Controls.Add(projectButton);
 
             okButton = new Button();
-            okButton.Location = new Point(300, 362);
+            okButton.Location = new Point(414, 592);
             okButton.Size = new Size(90, 32);
             okButton.DialogResult = DialogResult.OK;
             okButton.Click += delegate { CommitSettings(); };
             Controls.Add(okButton);
 
             cancelButton = new Button();
-            cancelButton.Location = new Point(400, 362);
+            cancelButton.Location = new Point(514, 592);
             cancelButton.Size = new Size(90, 32);
             cancelButton.DialogResult = DialogResult.Cancel;
             Controls.Add(cancelButton);
 
             AcceptButton = okButton;
             CancelButton = cancelButton;
+
             colorDialog = new ColorDialog();
             colorDialog.FullOpen = true;
 
@@ -1209,8 +1410,10 @@ namespace OffNet
             languageBox.SelectedIndexChanged += delegate
             {
                 if (applyingLanguage) return;
+
                 LanguageChoice choice = languageBox.SelectedItem as LanguageChoice;
                 if (choice == null) return;
+
                 Localization.SetLanguage(choice.Code);
                 ApplyLocalization();
                 FillLanguages(choice.Code);
@@ -1225,13 +1428,14 @@ namespace OffNet
             Label label = new Label();
             label.AutoSize = false;
             label.Location = new Point(14, y + 6);
-            label.Size = new Size(235, 24);
+            label.Size = new Size(315, 24);
             parent.Controls.Add(label);
 
             button = new Button();
-            button.Location = new Point(270, y);
-            button.Size = new Size(180, 30);
+            button.Location = new Point(350, y);
+            button.Size = new Size(200, 30);
             parent.Controls.Add(button);
+
             return label;
         }
 
@@ -1244,14 +1448,24 @@ namespace OffNet
                 languageBox.Items.Add(new LanguageChoice("en", Localization.T("English")));
                 languageBox.Items.Add(new LanguageChoice("de", Localization.T("German")));
                 languageBox.Items.Add(new LanguageChoice("fr", Localization.T("French")));
+
                 for (int i = 0; i < languageBox.Items.Count; i++)
                 {
                     LanguageChoice item = languageBox.Items[i] as LanguageChoice;
-                    if (item != null && item.Code == selectCode) { languageBox.SelectedIndex = i; break; }
+                    if (item != null && item.Code == selectCode)
+                    {
+                        languageBox.SelectedIndex = i;
+                        break;
+                    }
                 }
-                if (languageBox.SelectedIndex < 0) languageBox.SelectedIndex = 0;
+
+                if (languageBox.SelectedIndex < 0)
+                    languageBox.SelectedIndex = 0;
             }
-            finally { applyingLanguage = false; }
+            finally
+            {
+                applyingLanguage = false;
+            }
         }
 
         private Color PickColor(Color current)
@@ -1265,6 +1479,10 @@ namespace OffNet
             SetColorButton(activeButton, activeColor);
             SetColorButton(disabledButton, disabledColor);
             SetColorButton(offlineButton, offlineColor);
+
+            SetColorButton(downloadButton, downloadColor);
+            SetColorButton(uploadButton, uploadColor);
+            SetColorButton(offlineActivityButton, offlineActivityColor);
         }
 
         private static void SetColorButton(Button button, Color color)
@@ -1278,12 +1496,24 @@ namespace OffNet
         private void ApplyLocalization()
         {
             Text = Localization.T("OptionsTitle");
+
             languageLabel.Text = Localization.T("Language");
+
             colorsGroup.Text = Localization.T("TrayColors");
             activeLabel.Text = Localization.T("ActiveInternetColor");
             disabledLabel.Text = Localization.T("DisabledColor");
             offlineLabel.Text = Localization.T("OfflineColor");
             hintLabel.Text = Localization.T("OptionsHint");
+
+            trafficGroup.Text = Localization.T("TrafficOverviewGroup");
+            trafficOverviewCheckBox.Text = Localization.T("ShowTrafficOverview");
+            trafficHistoryLabel.Text = Localization.T("TrafficHistory");
+            trafficMinutesLabel.Text = Localization.T("Minutes");
+            downloadLabel.Text = Localization.T("DownloadColor");
+            uploadLabel.Text = Localization.T("UploadColor");
+            offlineActivityLabel.Text = Localization.T("OfflineActivityColor");
+            trafficHintLabel.Text = Localization.T("TrafficOptionsHint");
+
             startupCheckBox.Text = Localization.T("StartWithWindows");
             defaultsButton.Text = Localization.T("RestoreDefaults");
             projectButton.Text = Localization.T("OpenProject");
@@ -1294,10 +1524,18 @@ namespace OffNet
         private void CommitSettings()
         {
             LanguageChoice choice = languageBox.SelectedItem as LanguageChoice;
+
             ResultSettings.Language = choice == null ? "en" : choice.Code;
             ResultSettings.ActiveColorArgb = activeColor.ToArgb();
             ResultSettings.DisabledColorArgb = disabledColor.ToArgb();
             ResultSettings.OfflineColorArgb = offlineColor.ToArgb();
+
+            ResultSettings.ShowTrafficOverview = trafficOverviewCheckBox.Checked;
+            ResultSettings.TrafficHistoryMinutes = (int)trafficHistoryMinutes.Value;
+            ResultSettings.DownloadColorArgb = downloadColor.ToArgb();
+            ResultSettings.UploadColorArgb = uploadColor.ToArgb();
+            ResultSettings.OfflineActivityColorArgb = offlineActivityColor.ToArgb();
+
             ResultStartWithWindows = startupCheckBox.Checked;
         }
     }
@@ -1613,6 +1851,640 @@ namespace OffNet
         }
     }
 
+    internal sealed class TrafficSample
+    {
+        internal DateTime TimestampUtc;
+        internal double DownloadMbps;
+        internal double UploadMbps;
+        internal double OfflineActivityMbps;
+        internal bool ManagedDisabled;
+    }
+
+    internal sealed class TrafficCounterSnapshot
+    {
+        internal long BytesReceived;
+        internal long BytesSent;
+    }
+
+    internal sealed class TrafficMonitor
+    {
+        private readonly object sync = new object();
+        private readonly List<TrafficSample> samples = new List<TrafficSample>();
+        private readonly Dictionary<string, TrafficCounterSnapshot> previousCounters =
+            new Dictionary<string, TrafficCounterSnapshot>(StringComparer.OrdinalIgnoreCase);
+
+        private HashSet<string> managedInterfaceIds =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> managedDescriptions =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private string managedSignature = String.Empty;
+        private DateTime nextSelectorRefreshUtc = DateTime.MinValue;
+        private DateTime lastSampleUtc = DateTime.MinValue;
+        private int historyMinutes = 10;
+
+        internal int HistoryMinutes
+        {
+            get
+            {
+                lock (sync) return historyMinutes;
+            }
+        }
+
+        internal void SetHistoryMinutes(int minutes)
+        {
+            lock (sync)
+            {
+                historyMinutes = Math.Max(1, Math.Min(60, minutes));
+                TrimHistory(DateTime.UtcNow);
+            }
+        }
+
+        internal void ResetCounters()
+        {
+            lock (sync)
+            {
+                previousCounters.Clear();
+                lastSampleUtc = DateTime.MinValue;
+            }
+        }
+
+        internal void Sample(HashSet<string> managedDeviceIds, bool managedDisabled)
+        {
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                EnsureManagedSelectors(managedDeviceIds, now);
+
+                double elapsedSeconds;
+                lock (sync)
+                {
+                    elapsedSeconds = lastSampleUtc == DateTime.MinValue
+                        ? 0.0
+                        : (now - lastSampleUtc).TotalSeconds;
+                    lastSampleUtc = now;
+                }
+
+                if (elapsedSeconds <= 0.0 || elapsedSeconds > 15.0)
+                    elapsedSeconds = 0.0;
+
+                double downloadBytes = 0.0;
+                double uploadBytes = 0.0;
+                double offlineBytes = 0.0;
+
+                HashSet<string> seen =
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                NetworkInterface[] interfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+                foreach (NetworkInterface networkInterface in interfaces)
+                {
+                    if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                        continue;
+
+                    string normalizedId =
+                        DeviceManager.NormalizeNetworkInterfaceId(networkInterface.Id);
+
+                    if (String.IsNullOrWhiteSpace(normalizedId))
+                        normalizedId = networkInterface.Id;
+
+                    seen.Add(normalizedId);
+
+                    long bytesReceived;
+                    long bytesSent;
+
+                    try
+                    {
+                        IPInterfaceStatistics statistics =
+                            networkInterface.GetIPStatistics();
+                        bytesReceived = statistics.BytesReceived;
+                        bytesSent = statistics.BytesSent;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    TrafficCounterSnapshot previous = null;
+
+                    lock (sync)
+                    {
+                        previousCounters.TryGetValue(normalizedId, out previous);
+                        previousCounters[normalizedId] =
+                            new TrafficCounterSnapshot
+                            {
+                                BytesReceived = bytesReceived,
+                                BytesSent = bytesSent
+                            };
+                    }
+
+                    if (elapsedSeconds <= 0.0 || previous == null)
+                        continue;
+
+                    long receivedDelta =
+                        bytesReceived >= previous.BytesReceived
+                            ? bytesReceived - previous.BytesReceived
+                            : 0;
+
+                    long sentDelta =
+                        bytesSent >= previous.BytesSent
+                            ? bytesSent - previous.BytesSent
+                            : 0;
+
+                    bool isManaged =
+                        managedInterfaceIds.Contains(normalizedId) ||
+                        managedDescriptions.Contains(networkInterface.Description ?? String.Empty) ||
+                        managedDescriptions.Contains(networkInterface.Name ?? String.Empty);
+
+                    if (isManaged)
+                    {
+                        downloadBytes += receivedDelta;
+                        uploadBytes += sentDelta;
+                    }
+                    else if (managedDisabled &&
+                             networkInterface.OperationalStatus == OperationalStatus.Up)
+                    {
+                        // The third curve intentionally combines RX + TX. It exists to
+                        // reveal traffic on adapters that OffNet did NOT disable while the
+                        // user expects the managed adapters to be offline.
+                        offlineBytes += receivedDelta + sentDelta;
+                    }
+                }
+
+                lock (sync)
+                {
+                    List<string> stale = new List<string>();
+                    foreach (string id in previousCounters.Keys)
+                    {
+                        if (!seen.Contains(id)) stale.Add(id);
+                    }
+
+                    foreach (string id in stale)
+                        previousCounters.Remove(id);
+
+                    double divisor =
+                        elapsedSeconds > 0.0
+                            ? elapsedSeconds * 1000000.0
+                            : 1.0;
+
+                    TrafficSample sample = new TrafficSample();
+                    sample.TimestampUtc = now;
+                    sample.DownloadMbps = elapsedSeconds > 0.0
+                        ? (downloadBytes * 8.0) / divisor
+                        : 0.0;
+                    sample.UploadMbps = elapsedSeconds > 0.0
+                        ? (uploadBytes * 8.0) / divisor
+                        : 0.0;
+                    sample.OfflineActivityMbps = elapsedSeconds > 0.0
+                        ? (offlineBytes * 8.0) / divisor
+                        : 0.0;
+                    sample.ManagedDisabled = managedDisabled;
+
+                    samples.Add(sample);
+                    TrimHistory(now);
+                }
+            }
+            catch
+            {
+                // Traffic telemetry is an optional overview feature and must never
+                // interfere with OffNet's device control.
+            }
+        }
+
+        internal List<TrafficSample> GetSnapshot()
+        {
+            lock (sync)
+            {
+                List<TrafficSample> copy =
+                    new List<TrafficSample>(samples.Count);
+
+                foreach (TrafficSample sample in samples)
+                {
+                    TrafficSample cloned = new TrafficSample();
+                    cloned.TimestampUtc = sample.TimestampUtc;
+                    cloned.DownloadMbps = sample.DownloadMbps;
+                    cloned.UploadMbps = sample.UploadMbps;
+                    cloned.OfflineActivityMbps = sample.OfflineActivityMbps;
+                    cloned.ManagedDisabled = sample.ManagedDisabled;
+                    copy.Add(cloned);
+                }
+
+                return copy;
+            }
+        }
+
+        private void EnsureManagedSelectors(
+            HashSet<string> managedDeviceIds,
+            DateTime now)
+        {
+            string signature = BuildSignature(managedDeviceIds);
+
+            if (signature == managedSignature &&
+                now < nextSelectorRefreshUtc)
+            {
+                return;
+            }
+
+            HashSet<string> interfaceIds;
+            HashSet<string> descriptions;
+
+            DeviceManager.GetManagedInterfaceSelectors(
+                managedDeviceIds,
+                out interfaceIds,
+                out descriptions);
+
+            managedInterfaceIds = interfaceIds;
+            managedDescriptions = descriptions;
+            managedSignature = signature;
+            nextSelectorRefreshUtc = now.AddSeconds(30);
+        }
+
+        private static string BuildSignature(HashSet<string> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return String.Empty;
+
+            List<string> values = new List<string>();
+
+            foreach (string id in ids)
+            {
+                if (!String.IsNullOrWhiteSpace(id))
+                    values.Add(id.Trim());
+            }
+
+            values.Sort(StringComparer.OrdinalIgnoreCase);
+            return String.Join("|", values.ToArray());
+        }
+
+        private void TrimHistory(DateTime now)
+        {
+            DateTime minimum =
+                now.AddMinutes(-Math.Max(1, Math.Min(60, historyMinutes)));
+
+            int removeCount = 0;
+
+            while (removeCount < samples.Count &&
+                   samples[removeCount].TimestampUtc < minimum)
+            {
+                removeCount++;
+            }
+
+            if (removeCount > 0)
+                samples.RemoveRange(0, removeCount);
+        }
+    }
+
+    internal sealed class TrafficGraphControl : Control
+    {
+        private readonly TrafficMonitor monitor;
+        private AppSettings settings;
+
+        internal TrafficGraphControl(TrafficMonitor trafficMonitor, AppSettings appSettings)
+        {
+            monitor = trafficMonitor;
+            settings = appSettings.Clone();
+
+            Size = new Size(430, 210);
+            MinimumSize = new Size(430, 210);
+            MaximumSize = new Size(430, 210);
+            Margin = new Padding(0);
+            BackColor = SystemColors.Menu;
+            ForeColor = SystemColors.MenuText;
+
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.UserPaint,
+                true);
+        }
+
+        internal void UpdateSettings(AppSettings appSettings)
+        {
+            settings = appSettings.Clone();
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            e.Graphics.SmoothingMode =
+                System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            Rectangle bounds = ClientRectangle;
+            e.Graphics.Clear(SystemColors.Menu);
+
+            using (Font titleFont = new Font(Font, FontStyle.Bold))
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Localization.F(
+                        "TrafficGraphTitle",
+                        settings.TrafficHistoryMinutes),
+                    titleFont,
+                    new Rectangle(10, 7, bounds.Width - 20, 22),
+                    ForeColor,
+                    TextFormatFlags.Left |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.EndEllipsis);
+            }
+
+            List<TrafficSample> snapshot = monitor.GetSnapshot();
+            TrafficSample current =
+                snapshot.Count > 0
+                    ? snapshot[snapshot.Count - 1]
+                    : null;
+
+            Color downloadColor = Color.FromArgb(settings.DownloadColorArgb);
+            Color uploadColor = Color.FromArgb(settings.UploadColorArgb);
+            Color offlineColor = Color.FromArgb(settings.OfflineActivityColorArgb);
+
+            DrawLegendValue(
+                e.Graphics,
+                10,
+                32,
+                downloadColor,
+                Localization.T("TrafficDownload"),
+                current == null ? 0.0 : current.DownloadMbps);
+
+            DrawLegendValue(
+                e.Graphics,
+                150,
+                32,
+                uploadColor,
+                Localization.T("TrafficUpload"),
+                current == null ? 0.0 : current.UploadMbps);
+
+            DrawLegendValue(
+                e.Graphics,
+                276,
+                32,
+                offlineColor,
+                Localization.T("TrafficOfflineActivity"),
+                current == null || !current.ManagedDisabled ? 0.0 : current.OfflineActivityMbps);
+
+            Rectangle plot =
+                new Rectangle(44, 58, bounds.Width - 56, bounds.Height - 83);
+
+            using (Pen borderPen = new Pen(SystemColors.ControlDark))
+            using (Pen gridPen = new Pen(Color.FromArgb(225, 225, 225)))
+            {
+                e.Graphics.DrawRectangle(borderPen, plot);
+
+                for (int i = 1; i < 4; i++)
+                {
+                    int y = plot.Top + (plot.Height * i / 4);
+                    e.Graphics.DrawLine(
+                        gridPen,
+                        plot.Left,
+                        y,
+                        plot.Right,
+                        y);
+                }
+            }
+
+            if (snapshot.Count < 2)
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Localization.T("TrafficCollecting"),
+                    Font,
+                    plot,
+                    SystemColors.GrayText,
+                    TextFormatFlags.HorizontalCenter |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.EndEllipsis);
+            }
+            else
+            {
+                double maxValue = 0.0;
+
+                foreach (TrafficSample sample in snapshot)
+                {
+                    maxValue = Math.Max(maxValue, sample.DownloadMbps);
+                    maxValue = Math.Max(maxValue, sample.UploadMbps);
+                    if (sample.ManagedDisabled)
+                        maxValue = Math.Max(maxValue, sample.OfflineActivityMbps);
+                }
+
+                double graphMax = NiceMaximum(maxValue);
+
+                DrawCurve(
+                    e.Graphics,
+                    plot,
+                    snapshot,
+                    graphMax,
+                    downloadColor,
+                    0,
+                    settings.TrafficHistoryMinutes);
+
+                DrawCurve(
+                    e.Graphics,
+                    plot,
+                    snapshot,
+                    graphMax,
+                    uploadColor,
+                    1,
+                    settings.TrafficHistoryMinutes);
+
+                DrawCurve(
+                    e.Graphics,
+                    plot,
+                    snapshot,
+                    graphMax,
+                    offlineColor,
+                    2,
+                    settings.TrafficHistoryMinutes);
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    FormatRate(graphMax),
+                    Font,
+                    new Rectangle(0, plot.Top - 7, 40, 18),
+                    ForeColor,
+                    TextFormatFlags.Right |
+                    TextFormatFlags.VerticalCenter);
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    "0",
+                    Font,
+                    new Rectangle(0, plot.Bottom - 9, 40, 18),
+                    ForeColor,
+                    TextFormatFlags.Right |
+                    TextFormatFlags.VerticalCenter);
+            }
+
+            string leftTime =
+                "-" + settings.TrafficHistoryMinutes.ToString(CultureInfo.CurrentCulture) + " min";
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                leftTime,
+                Font,
+                new Rectangle(plot.Left, plot.Bottom + 4, 90, 18),
+                SystemColors.GrayText,
+                TextFormatFlags.Left);
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                "0 min",
+                Font,
+                new Rectangle(plot.Right - 80, plot.Bottom + 4, 80, 18),
+                SystemColors.GrayText,
+                TextFormatFlags.Right);
+        }
+
+        private void DrawLegendValue(
+            Graphics graphics,
+            int x,
+            int y,
+            Color color,
+            string label,
+            double value)
+        {
+            using (SolidBrush brush = new SolidBrush(color))
+            {
+                graphics.FillRectangle(brush, x, y + 4, 10, 10);
+            }
+
+            string text =
+                label + " " +
+                value.ToString(value < 10.0 ? "0.00" : "0.0", CultureInfo.CurrentCulture) +
+                " Mbit/s";
+
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                Font,
+                new Rectangle(x + 15, y, 138, 20),
+                ForeColor,
+                TextFormatFlags.Left |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis);
+        }
+
+        private static void DrawCurve(
+            Graphics graphics,
+            Rectangle plot,
+            List<TrafficSample> samples,
+            double graphMax,
+            Color color,
+            int series,
+            int historyMinutes)
+        {
+            if (samples.Count < 2 || graphMax <= 0.0)
+                return;
+
+            DateTime end = DateTime.UtcNow;
+
+            // Always keep the X axis fixed to the configured rolling window.
+            // During the first minutes after startup only the right side fills in.
+            DateTime windowStart =
+                end.AddMinutes(-Math.Max(1, Math.Min(60, historyMinutes)));
+
+            List<PointF> points = new List<PointF>();
+
+            using (Pen pen = new Pen(color, 1.8f))
+            {
+                pen.LineJoin =
+                    System.Drawing.Drawing2D.LineJoin.Round;
+
+                foreach (TrafficSample sample in samples)
+                {
+                    // The third curve is deliberately visible only during periods
+                    // in which all OffNet-managed adapters were disabled.
+                    if (series == 2 && !sample.ManagedDisabled)
+                    {
+                        DrawPointSegment(graphics, pen, points);
+                        points.Clear();
+                        continue;
+                    }
+
+                    double ageFraction =
+                        (sample.TimestampUtc - windowStart).TotalSeconds /
+                        Math.Max(1.0, (end - windowStart).TotalSeconds);
+
+                    if (ageFraction < 0.0 || ageFraction > 1.0)
+                    {
+                        if (series == 2)
+                        {
+                            DrawPointSegment(graphics, pen, points);
+                            points.Clear();
+                        }
+                        continue;
+                    }
+
+                    double value = 0.0;
+
+                    if (series == 0)
+                        value = sample.DownloadMbps;
+                    else if (series == 1)
+                        value = sample.UploadMbps;
+                    else
+                        value = sample.OfflineActivityMbps;
+
+                    value = Math.Max(0.0, Math.Min(graphMax, value));
+
+                    float x =
+                        plot.Left +
+                        (float)(ageFraction * plot.Width);
+
+                    float y =
+                        plot.Bottom -
+                        (float)((value / graphMax) * plot.Height);
+
+                    points.Add(new PointF(x, y));
+                }
+
+                DrawPointSegment(graphics, pen, points);
+            }
+        }
+
+        private static void DrawPointSegment(
+            Graphics graphics,
+            Pen pen,
+            List<PointF> points)
+        {
+            if (points.Count >= 2)
+                graphics.DrawLines(pen, points.ToArray());
+        }
+
+        private static double NiceMaximum(double value)
+        {
+            if (value <= 0.08)
+                return 0.1;
+
+            double exponent =
+                Math.Pow(10.0, Math.Floor(Math.Log10(value)));
+
+            double normalized = value / exponent;
+            double nice;
+
+            if (normalized <= 1.0)
+                nice = 1.0;
+            else if (normalized <= 2.0)
+                nice = 2.0;
+            else if (normalized <= 5.0)
+                nice = 5.0;
+            else
+                nice = 10.0;
+
+            return nice * exponent;
+        }
+
+        private static string FormatRate(double value)
+        {
+            if (value < 1.0)
+                return value.ToString("0.0", CultureInfo.CurrentCulture);
+
+            if (value < 10.0)
+                return value.ToString("0.0", CultureInfo.CurrentCulture);
+
+            return value.ToString("0", CultureInfo.CurrentCulture);
+        }
+    }
+
     internal sealed class OffNetApplicationContext : ApplicationContext, IDisposable
     {
         private readonly NotifyIcon trayIcon;
@@ -1626,6 +2498,11 @@ namespace OffNet
         private readonly MainWindow mainWindow;
         private readonly System.Windows.Forms.Timer statusTimer;
         private readonly System.Windows.Forms.Timer blinkTimer;
+        private readonly System.Windows.Forms.Timer trafficTimer;
+        private readonly TrafficMonitor trafficMonitor;
+        private readonly TrafficGraphControl trafficGraph;
+        private readonly ToolStripControlHost trafficHost;
+        private readonly ToolStripSeparator trafficSeparator;
 
         private AppSettings settings;
         private Icon activeIcon;
@@ -1642,7 +2519,26 @@ namespace OffNet
             Localization.SetLanguage(settings.Language);
             CreateIcons();
 
+            trafficMonitor = new TrafficMonitor();
+            trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+            trafficGraph = new TrafficGraphControl(trafficMonitor, settings);
+
             trayMenu = new ContextMenuStrip();
+            // Explicit AutoClose is important for a tray menu opened manually by
+            // either mouse button: clicking anywhere outside the menu dismisses it.
+            trayMenu.AutoClose = true;
+            trayMenu.ShowImageMargin = false;
+            trayMenu.ShowCheckMargin = false;
+
+            trafficHost = new ToolStripControlHost(trafficGraph);
+            trafficHost.AutoSize = false;
+            trafficHost.Size = trafficGraph.Size;
+            trafficHost.Margin = new Padding(2);
+            trayMenu.Items.Add(trafficHost);
+
+            trafficSeparator = new ToolStripSeparator();
+            trayMenu.Items.Add(trafficSeparator);
+
             activateItem = new ToolStripMenuItem();
             activateItem.Click += delegate { ActivateManagedDevices(); };
             trayMenu.Items.Add(activateItem);
@@ -1670,24 +2566,13 @@ namespace OffNet
             exitItem.Click += delegate { ExitOffNet(); };
             trayMenu.Items.Add(exitItem);
 
-            trayIcon = new NotifyIcon();
-            trayIcon.Visible = true;
-            trayIcon.Icon = offlineIconA;
-            trayIcon.Text = "OffNet";
-            trayIcon.ContextMenuStrip = trayMenu;
-            trayIcon.MouseClick += delegate(object sender, MouseEventArgs e)
-            {
-                if (e.Button == MouseButtons.Left)
-                {
-                    UpdateTrayState();
-                    trayMenu.Show(Cursor.Position);
-                }
-            };
-            trayIcon.DoubleClick += delegate { ShowMainWindow(); };
-
             bool firstRun = !ConfigurationStore.HasManagedDeviceConfiguration;
             mainWindow = new MainWindow();
-            mainWindow.ManagedDevicesChanged += delegate { UpdateTrayState(); };
+            mainWindow.ManagedDevicesChanged += delegate
+            {
+                trafficMonitor.ResetCounters();
+                UpdateTrayState();
+            };
             mainWindow.ReconnectRequested += delegate { Reconnect(); };
             mainWindow.FormClosing += delegate(object sender, FormClosingEventArgs e)
             {
@@ -1699,6 +2584,27 @@ namespace OffNet
                 }
             };
             IntPtr mainWindowHandle = mainWindow.Handle;
+
+            trayIcon = new NotifyIcon();
+            trayIcon.Visible = true;
+            trayIcon.Icon = offlineIconA;
+            trayIcon.Text = "OffNet";
+
+            // Handle both buttons ourselves. This avoids two different menu paths
+            // (NotifyIcon.ContextMenuStrip vs. manual Show) and gives left/right
+            // click identical close-on-outside-click behaviour.
+            trayIcon.MouseUp += delegate(object sender, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left ||
+                    e.Button == MouseButtons.Right)
+                {
+                    ShowTrayMenu();
+                }
+            };
+
+            trayIcon.DoubleClick += delegate { ShowMainWindow(); };
+
+            UpdateTrafficOverviewVisibility();
 
             ApplyLocalization();
             mainWindow.RefreshDevices();
@@ -1725,6 +2631,14 @@ namespace OffNet
             blinkTimer.Interval = 500;
             blinkTimer.Tick += delegate { UpdateBlink(); };
             blinkTimer.Start();
+
+            trafficTimer = new System.Windows.Forms.Timer();
+            trafficTimer.Interval = 1000;
+            trafficTimer.Tick += delegate { SampleTraffic(); };
+            trafficTimer.Start();
+
+            if (settings.ShowTrafficOverview)
+                SampleTraffic();
         }
 
         private HashSet<string> ManagedIds { get { return ConfigurationStore.LoadManagedIds(); } }
@@ -1738,6 +2652,7 @@ namespace OffNet
             optionsItem.Text = Localization.T("TrayOptions");
             exitItem.Text = Localization.T("TrayExit");
             mainWindow.ApplyLocalization();
+            trafficGraph.UpdateSettings(settings);
             UpdateTrayState();
         }
 
@@ -1762,9 +2677,19 @@ namespace OffNet
                 DialogResult result = form.ShowDialog(mainWindow.Visible ? mainWindow : null);
                 if (result == DialogResult.OK)
                 {
+                    bool trafficWasEnabled = settings.ShowTrafficOverview;
+
                     settings = form.ResultSettings.Clone();
                     Localization.SetLanguage(settings.Language);
                     ConfigurationStore.SaveSettings(settings);
+
+                    trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+                    trafficGraph.UpdateSettings(settings);
+
+                    if (!trafficWasEnabled && settings.ShowTrafficOverview)
+                        trafficMonitor.ResetCounters();
+
+                    UpdateTrafficOverviewVisibility();
 
                     try
                     {
@@ -1791,6 +2716,69 @@ namespace OffNet
                     ApplyLocalization();
                 }
             }
+        }
+
+        private void UpdateTrafficOverviewVisibility()
+        {
+            bool visible =
+                settings != null &&
+                settings.ShowTrafficOverview;
+
+            trafficHost.Visible = visible;
+            trafficSeparator.Visible = visible;
+
+            if (visible)
+            {
+                trafficMonitor.SetHistoryMinutes(settings.TrafficHistoryMinutes);
+                trafficGraph.UpdateSettings(settings);
+            }
+        }
+
+        private void ShowTrayMenu()
+        {
+            if (trayMenu == null || trayIcon == null)
+                return;
+
+            UpdateTrayState();
+            UpdateTrafficOverviewVisibility();
+
+            if (settings.ShowTrafficOverview)
+                trafficGraph.Invalidate();
+
+            // Close an already open instance first. AutoClose then handles every
+            // click outside the popup exactly like a normal Windows context menu.
+            if (trayMenu.Visible)
+                trayMenu.Close(ToolStripDropDownCloseReason.AppClicked);
+
+            try
+            {
+                NativeMethods.SetForegroundWindow(mainWindow.Handle);
+            }
+            catch
+            {
+            }
+
+            trayMenu.Show(Cursor.Position);
+        }
+
+        private void SampleTraffic()
+        {
+            if (settings == null || !settings.ShowTrafficOverview)
+                return;
+
+            HashSet<string> ids = ManagedIds;
+
+            // Red with at least one configured managed device means OffNet expects
+            // its managed network path to be disabled. During these periods the
+            // third curve records traffic on any OTHER active adapter.
+            bool managedDisabled =
+                ids.Count > 0 &&
+                currentState == TrayState.Red;
+
+            trafficMonitor.Sample(ids, managedDisabled);
+
+            if (trayMenu.Visible && trafficHost.Visible)
+                trafficGraph.Invalidate();
         }
 
         private void CreateIcons()
@@ -1882,6 +2870,7 @@ namespace OffNet
                 catch (Exception ex) { errors.Add(ex.Message); }
             }
             Thread.Sleep(250);
+            trafficMonitor.ResetCounters();
             UpdateTrayState();
             mainWindow.SetStatusText(Localization.T("StatusActivate"));
             if (errors.Count == 0) ShowBalloon("OffNet — " + Localization.T("TrayActivate"), Localization.T("ActivateDone"), ToolTipIcon.Info);
@@ -1911,6 +2900,7 @@ namespace OffNet
                 catch (Exception ex) { errors.Add(ex.Message); }
             }
             Thread.Sleep(250);
+            trafficMonitor.ResetCounters();
             UpdateTrayState();
             mainWindow.SetStatusText(Localization.T("StatusDisable"));
             if (errors.Count == 0) ShowBalloon("OffNet — " + Localization.T("TrayDisable"), Localization.T("DisableDone"), ToolTipIcon.Info);
@@ -1959,6 +2949,7 @@ namespace OffNet
             exiting = true;
             statusTimer.Stop();
             blinkTimer.Stop();
+            trafficTimer.Stop();
             trayIcon.Visible = false;
             mainWindow.Close();
             ExitThread();
@@ -1972,6 +2963,7 @@ namespace OffNet
                 {
                     if (statusTimer != null) statusTimer.Dispose();
                     if (blinkTimer != null) blinkTimer.Dispose();
+                    if (trafficTimer != null) trafficTimer.Dispose();
                     if (trayIcon != null) trayIcon.Dispose();
                     if (trayMenu != null) trayMenu.Dispose();
                     if (mainWindow != null) mainWindow.Dispose();

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0
+
+- Added an optional rolling network-throughput overview directly inside the tray context menu.
+- Default graph history is 10 minutes and can be configured from 1 to 60 minutes in **Options**.
+- Added overlapping **Download** and **Upload** curves in Mbit/s.
+- Added a third **Offline activity** curve. It is visible only for periods in which all OffNet-managed adapters are disabled and reports combined RX + TX traffic on other active adapters.
+- Added configurable colors for all three traffic curves.
+- Traffic sampling continues while the tray menu is closed when the overview option is enabled, preserving the rolling history.
+- Traffic sampling is disabled entirely when the overview option is off to keep background overhead minimal.
+- Left and right tray-icon clicks now use the same popup path.
+- Explicitly enabled normal context-menu AutoClose behavior so clicking outside the tray popup closes it immediately.
+- Kept the tray action list compact; the graph is optional and appears above the existing actions.
+- Added English, German and French localization for the new traffic options and graph labels.
+
 ## 1.1.2
 
 - Added an **Options** checkbox to start OffNet automatically at Windows sign-in.
