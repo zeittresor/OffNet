@@ -1,5 +1,4 @@
 # OffNet
-# OffNet
 
 OffNet is a lightweight Windows 10/11 tray application for enabling and disabling network devices directly at the Windows **PnP/driver level**.
 
