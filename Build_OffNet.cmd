@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-title OffNet 1.3.3 - Build
+title OffNet 1.5.1 - Build
 
 echo ============================================================
-echo   OffNet 1.3.3
+echo   OffNet 1.5.1
 echo   C# / WinForms - Windows 10/11 Build
 echo   https://github.com/zeittresor/OffNet
 echo ============================================================
@@ -28,7 +28,7 @@ if not defined CSC (
 )
 
 echo [COMPILER] "%CSC%"
-echo [SOURCE]   OffNet.cs
+echo [SOURCE]   OffNet.cs + AssemblyInfo.cs
 echo [OUTPUT]   OffNet.exe
 echo.
 
@@ -46,7 +46,8 @@ if exist "OffNet.exe" del /q "OffNet.exe" >nul 2>&1
  /reference:System.Windows.Forms.dll ^
  /reference:Microsoft.CSharp.dll ^
  /out:"OffNet.exe" ^
- "OffNet.cs"
+ "OffNet.cs" ^
+ "AssemblyInfo.cs"
 
 if errorlevel 1 (
     echo.

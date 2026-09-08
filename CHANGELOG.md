@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.5.1
+
+- Added explicit Windows executable version metadata.
+- `OffNet.exe` now reports file version **1.5.1.0** and product version **1.5.1** instead of `0.0.0.0`.
+- Added descriptive file/product metadata for Windows Explorer's **Details** tab.
+- Embedded `zeittresor` as the company/project owner.
+- Embedded the MIT license/copyright reference.
+- Embedded the project/source reference `https://github.com/zeittresor/OffNet` in assembly metadata.
+- Added `AssemblyInfo.cs` to keep executable metadata separate and maintainable.
+- The OffNet main window and Options dialog now display the same icon embedded in `OffNet.exe`.
+- Preserved all OffNet 1.5.0 traffic, full-screen, theme, tray and device-control features.
+
+## 1.5.0
+
+- Added dynamic throughput-scale recalculation, defaulting to **5 seconds**.
+- Added a **1–30 second** scale-update slider in Traffic options.
+- Both the tray-menu graph and permanent taskbar meter now use recent traffic for adaptive Y-axis scaling, so low current throughput remains visually meaningful after old high peaks.
+- Added true foreground full-screen detection.
+- While a game, browser or other application occupies its monitor in full-screen mode, OffNet hides the taskbar meter and pauses traffic sampling for both graph views.
+- Traffic monitoring resumes automatically after full-screen mode ends, with byte counters re-baselined to avoid false spikes.
+- Added application-wide themes: **Muffin, Light, Dark, Sepia, Ocean, Matrix, Hellfire, Purple, Aurora**.
+- **Muffin** represents the original neutral/light OffNet appearance.
+- Added contrast-aware theme colors for backgrounds, controls, inputs, grids, menus, selections and status text.
+- Added a custom themed tray-menu renderer for readable selections in dark/custom themes.
+- Increased the Options dialog's usable vertical size while retaining automatic scrollbars and a 50-pixel top/bottom working-area safety margin.
+- Permanent taskbar rates now use **two decimal places** (`1.23 Mbit`).
+- Added an all-or-none **Text shadow in taskbar meter** option directly below the font selector; default is **off**.
+- Preserved 1-minute / 75-point traffic defaults, 10-second to 10-minute history slider, 10–300 measurement points, taskbar font selection and single status icon.
+
+## 1.4.0
+
+- Changed the default traffic history to **1 minute**.
+- Changed the default measurement resolution to **75 points**.
+- Replaced the old minute field with a slider from **10 seconds to 10 minutes** in **10-second steps**.
+- Reduced the measurement-point range to **10–300 points**.
+- Sampling frequency is calculated from the selected history window and measurement-point count.
+- Added statistics themes: **Light, Dark, Sepia, Ocean, Matrix, Hellfire, Purple, Aurora**.
+- Themes style graph background/grid/borders/supporting text without overriding the three configurable traffic-curve colors.
+- Preserved the transparent permanent taskbar meter, selectable taskbar font, Z-order fix, scrollable Options dialog, and single OffNet status icon.
+
 ## 1.3.2
 
 - Added a **Measurement points** slider to Traffic options.
