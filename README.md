@@ -284,23 +284,6 @@ The permanent taskbar meter now:
 
 Text shadow is disabled by default.
 
-
-## Windows executable metadata
-
-OffNet 1.5.1 explicitly embeds Windows version information in the generated executable instead of relying on compiler defaults.
-
-The **Details** tab of `OffNet.exe` includes:
-
-- File description: `OffNet - Network Device & Traffic Controller`
-- File version: `1.5.1.0`
-- Product name: `OffNet`
-- Product version: `1.5.1`
-- Company: `zeittresor`
-- Copyright / MIT license reference
-- Project/source reference: `https://github.com/zeittresor/OffNet`
-
-The project/source URL is also embedded in the assembly description/trademark metadata so it remains associated with the compiled executable.
-
 ## Window icon
 
 The icon embedded in `OffNet.exe` is now also reused by the normal OffNet main window and the Options dialog. The application therefore has consistent branding in Explorer, the executable, and WinForms title bars.
