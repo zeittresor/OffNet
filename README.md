@@ -1,10 +1,10 @@
 # OffNet
-
+<br>
 OffNet is a lightweight Windows 10/11 tray application for enabling and disabling network devices directly at the Windows **PnP/driver level**.
-
+<br>
+<br>
 <img width="465" height="37" alt="grafik" src="https://github.com/user-attachments/assets/d5d0d623-16fe-4c97-9230-c4f1342d1be1" />
-
-Project page: **https://github.com/zeittresor/OffNet**
+<br>
 
 ## Features
 
@@ -304,3 +304,6 @@ The project/source URL is also embedded in the assembly description/trademark me
 ## Window icon
 
 The icon embedded in `OffNet.exe` is now also reused by the normal OffNet main window and the Options dialog. The application therefore has consistent branding in Explorer, the executable, and WinForms title bars.
+<br>
+<br>
+Project page: **https://github.com/zeittresor/OffNet**
