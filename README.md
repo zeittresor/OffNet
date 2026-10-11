@@ -1,11 +1,8 @@
 # OffNet
-<br>
-OffNet is a lightweight Windows 10/11 tray application for enabling and disabling network devices directly at the Windows **PnP/driver level** and for monitoring the traffic.
-<br>
-<br>
-<img width="465" height="37" alt="grafik" src="https://github.com/user-attachments/assets/d5d0d623-16fe-4c97-9230-c4f1342d1be1" />
-<br>
 
+OffNet is a lightweight Windows 10/11 tray application for enabling and disabling network devices directly at the Windows **PnP/driver level**.
+
+Project page: **https://github.com/zeittresor/OffNet**
 
 ## Features
 
@@ -59,19 +56,20 @@ Default history length: **1 minute**
 
 The history length is configurable in **Options** with a slider from **10 seconds to 10 minutes** in **10-second steps**.
 
-Three independently colored curves are available:
+Four independently colored streams are available:
 
 - **Download** — receive throughput on OffNet-managed network adapters, in Mbit/s.
 - **Upload** — send throughput on OffNet-managed network adapters, in Mbit/s.
-- **Offline activity** — combined receive + send throughput on other active adapters, but only during periods in which all OffNet-managed adapters are disabled.
+- **Offline network activity** — combined receive + send throughput on other active adapters, but only during periods in which all OffNet-managed adapters are disabled.
+- **Disk activity** — combined read + write throughput of local physical disks, in Mbit/s.
 
-Download and upload share the same graph and can overlap. Their separate colors make them distinguishable.
+All enabled streams share the same graph and can overlap. Their separate colors make them distinguishable. Each stream can be independently shown or hidden in **Options**.
 
-The third curve is intentionally shown only for disabled periods. This makes it possible to notice traffic through another adapter even though the adapters controlled by OffNet are supposed to be offline.
+The offline-network curve is intentionally shown only for disabled periods. This makes it possible to notice traffic through another adapter even though the adapters controlled by OffNet are supposed to be offline. Hidden streams are excluded from automatic graph scaling; disk activity is also not queried while its stream is disabled.
 
 Traffic sampling is derived from the selected history window and measurement-point count. The default is **1 minute / 75 points**, which is approximately one measurement every **0.8 seconds**.
 
-No external server is contacted for the traffic graph. OffNet reads local Windows network-interface byte counters.
+No external server is contacted for the statistics. OffNet reads local Windows network-interface byte counters and, when enabled, local physical-disk performance counters through the Windows disk driver.
 
 ## Options
 
@@ -85,9 +83,11 @@ The **Options** dialog allows you to change:
 - Show or hide the permanent taskbar throughput meter
 - Traffic history window (10 seconds to 10 minutes)
 - Measurement points (10 to 300)
+- Show/hide Download, Upload, Offline network activity, and Disk activity independently
 - Download curve color
 - Upload curve color
-- Offline-activity curve color
+- Offline-network-activity curve color
+- Disk-activity curve color
 - Start OffNet automatically when you sign in to Windows
 - Open the OffNet project page on GitHub
 
@@ -281,13 +281,97 @@ The permanent taskbar meter now:
 - displays current rates with **two decimal places**, for example `1.23 Mbit`;
 - supports a configurable font;
 - provides one **Text shadow** switch directly below the font option;
-- applies the shadow consistently to all three traffic value labels and the dynamic scale label, or to none of them.
+- applies the shadow consistently to all visible traffic/disk value labels and the dynamic scale label, or to none of them.
 
 Text shadow is disabled by default.
+
+
+## Windows executable metadata
+
+OffNet 1.6.1 explicitly embeds Windows version information in the generated executable instead of relying on compiler defaults.
+
+The **Details** tab of `OffNet.exe` includes:
+
+- File description: `OffNet - Network Device & Traffic Controller`
+- File version: `1.6.0.0`
+- Product name: `OffNet`
+- Product version: `1.6.0`
+- Company: `zeittresor`
+- Copyright / MIT license reference
+- Project/source reference: `https://github.com/zeittresor/OffNet`
+
+The project/source URL is also embedded in the assembly description/trademark metadata so it remains associated with the compiled executable.
 
 ## Window icon
 
 The icon embedded in `OffNet.exe` is now also reused by the normal OffNet main window and the Options dialog. The application therefore has consistent branding in Explorer, the executable, and WinForms title bars.
-<br>
-<br>
-Project page: **https://github.com/zeittresor/OffNet**
+
+
+## Finer adaptive traffic scale in 1.5.2
+
+The adaptive graph ceiling now uses much finer steps. OffNet still keeps approximately 10% headroom above the recent traffic peak, but it no longer jumps from around 100 Mbit/s directly to 150 Mbit/s.
+
+Example:
+
+- recent peak: about `98.9 Mbit/s`
+- headroom target: about `108.8 Mbit/s`
+- displayed graph ceiling: `110 Mbit/s`
+
+This makes low and medium changes occupy more of the graph while still leaving a small visual margin above the highest recent value.
+
+
+## Selectable telemetry streams
+
+OffNet 1.6.1 adds a fourth statistics stream: **Disk activity**.
+
+The visible streams are individually selectable in **Options**:
+
+- Download
+- Upload
+- Offline network activity
+- Disk activity
+
+Enable all four to show everything, or enable only the values you want. The same visibility selection applies to the tray-menu statistics graph and to the permanent Windows-taskbar meter.
+
+Hidden streams are excluded from automatic Y-axis scaling. OffNet also avoids collecting hidden telemetry where practical; in particular, disk-performance queries are not made when the Disk activity stream is disabled.
+
+## Disk activity
+
+Disk activity is shown as the combined **read + write throughput of local physical disks**, converted to Mbit/s:
+
+```text
+Mbit/s = (bytes read + bytes written per second) × 8 / 1,000,000
+```
+
+The disk stream uses the Windows disk driver's cumulative `IOCTL_DISK_PERFORMANCE` counters through `DeviceIoControl`. This avoids WMI, PowerShell and language-dependent Windows Performance Counter names.
+
+OffNet keeps handles to detected local `PhysicalDrive` devices and refreshes the device list periodically to account for attached or removed disks.
+
+Default disk-activity color: **Deep Pink**. Like the network streams, it is configurable in Options.
+
+The adaptive Y-axis considers only streams that are currently enabled. This is important when disk throughput is much higher than network traffic: hiding the disk stream prevents a fast SSD transfer from compressing the visible network curves.
+
+
+## Independent scale participation
+
+Each telemetry stream now has two independent options in **Options > Traffic overview**:
+
+- whether the stream is **shown**;
+- whether the stream **affects the automatic Y-axis scale**.
+
+Default scale participation:
+
+- Download: on
+- Upload: on
+- Offline network activity: on
+- Disk activity: **off**
+
+Disk throughput can therefore remain visible without a multi-gigabit SSD transfer flattening the primarily network-oriented graph. Hidden streams never affect scaling. If no visible stream is selected as a scale source, OffNet keeps the current scale instead of collapsing it on every refresh.
+
+## Taskbar meter width
+
+The permanent taskbar meter width is configurable from **260 to 720 pixels**. The default is **420 px**. OffNet still clamps the actual overlay to the space available before the Windows notification area so it cannot blindly cover the tray.
+
+## Taskbar text shadow
+
+The taskbar text-shadow option now uses one shared, configurable shadow color for **all visible throughput values and the dynamic scale label**. Default shadow color is black. The shadow color is configurable directly under the font/shadow controls.

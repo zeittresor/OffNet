@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.6.1
+
+- Added independent **Show** and **Affects scale** controls for Download, Upload, Offline network activity and Disk activity.
+- Disk activity remains visible by default but no longer affects automatic graph scaling by default.
+- Added a configurable permanent taskbar-meter width slider (**260–720 px**, default **420 px**).
+- Taskbar width is still clamped to the actual free area before the Windows notification section.
+- Fixed the taskbar text-shadow option so one common shadow color is applied consistently to every visible stream value and the scale label.
+- Added a configurable taskbar shadow color; default is black.
+- Preserved all OffNet 1.6.0 network/device, disk-monitoring, theme, full-screen and traffic-history features.
+
+## 1.6.0
+
+- Added a fourth telemetry stream: **Disk activity** in Mbit/s.
+- Disk activity represents combined local physical-disk read + write throughput.
+- Added independent visibility check boxes for Download, Upload, Offline network activity and Disk activity.
+- Enabling all four check boxes displays all available streams.
+- Added a configurable disk-activity curve/value color.
+- The tray-menu graph and permanent taskbar meter both honor the same stream-visibility selection.
+- Automatic Y-axis scaling now considers only streams that are currently visible.
+- Hidden disk telemetry is not queried, reducing unnecessary work when the disk stream is disabled.
+- Disk telemetry uses language-independent Windows `IOCTL_DISK_PERFORMANCE` counters rather than WMI, PowerShell or localized Performance Counter names.
+- The taskbar meter dynamically distributes its value cells across the selected streams and widens when four streams are visible.
+- The tray-menu graph uses one or two legend rows depending on the selected stream count.
+- Preserved the 1.5.2 fine-grained adaptive scale, full-screen pausing, themes, taskbar font/shadow settings and PnP device controls.
+
+## 1.5.2
+
+- Refined the adaptive traffic graph Y-axis scaling.
+- Replaced the coarse 1 / 1.5 / 2 / 3 / 5 / 7.5 / 10 scale ladder with finer decimal subdivisions.
+- A recent peak around 99 Mbit/s now produces roughly a 110 Mbit/s ceiling instead of 150 Mbit/s.
+- Keeps the existing ~10% visual headroom and configurable scale-refresh interval.
+- Applies to both the tray-menu graph and the permanent taskbar meter through the shared `TrafficScaleState`.
+
 ## 1.5.1
 
 - Added explicit Windows executable version metadata.

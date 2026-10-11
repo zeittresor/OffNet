@@ -1,5 +1,5 @@
 ﻿/*
- * OffNet 1.5.1
+ * OffNet 1.6.1
  * Lightweight Windows 10/11 network-device tray controller.
  *
  * Project: https://github.com/zeittresor/OffNet
@@ -31,7 +31,7 @@ namespace OffNet
     internal static class Program
     {
         internal const string AppName = "OffNet";
-        internal const string Version = "1.5.1";
+        internal const string Version = "1.6.1";
         internal const string ProjectUrl = "https://github.com/zeittresor/OffNet";
 
         [STAThread]
@@ -98,14 +98,32 @@ namespace OffNet
         internal bool ShowTaskbarTrafficMeter = false;
         internal string TaskbarMeterFontName = "Segoe UI Semibold";
         internal bool TaskbarTextShadow = false;
+        internal int TaskbarShadowColorArgb = Color.Black.ToArgb();
+        internal int TaskbarMeterWidth = 420;
         internal int TrafficHistorySeconds = 60;
         internal int TrafficSamplePoints = 75;
         internal int TrafficScaleRefreshSeconds = 5;
         internal string StatisticsTheme = "Dark";
         internal string ApplicationTheme = "Muffin";
+
+        // Which telemetry streams are visible in both statistics views.
+        internal bool ShowDownloadStream = true;
+        internal bool ShowUploadStream = true;
+        internal bool ShowOfflineActivityStream = true;
+        internal bool ShowDiskActivityStream = true;
+
+        // Whether a visible stream contributes to the automatic Y-axis scale.
+        // Disk throughput is intentionally excluded by default so storage I/O
+        // cannot flatten the primarily network-oriented graph.
+        internal bool ScaleDownloadStream = true;
+        internal bool ScaleUploadStream = true;
+        internal bool ScaleOfflineActivityStream = true;
+        internal bool ScaleDiskActivityStream = false;
+
         internal int DownloadColorArgb = Color.DodgerBlue.ToArgb();
         internal int UploadColorArgb = Color.DarkOrange.ToArgb();
         internal int OfflineActivityColorArgb = Color.MediumPurple.ToArgb();
+        internal int DiskActivityColorArgb = Color.DeepPink.ToArgb();
 
         internal AppSettings Clone()
         {
@@ -118,14 +136,25 @@ namespace OffNet
             copy.ShowTaskbarTrafficMeter = ShowTaskbarTrafficMeter;
             copy.TaskbarMeterFontName = TaskbarMeterFontName;
             copy.TaskbarTextShadow = TaskbarTextShadow;
+            copy.TaskbarShadowColorArgb = TaskbarShadowColorArgb;
+            copy.TaskbarMeterWidth = TaskbarMeterWidth;
             copy.TrafficHistorySeconds = TrafficHistorySeconds;
             copy.TrafficSamplePoints = TrafficSamplePoints;
             copy.TrafficScaleRefreshSeconds = TrafficScaleRefreshSeconds;
             copy.StatisticsTheme = StatisticsTheme;
             copy.ApplicationTheme = ApplicationTheme;
+            copy.ShowDownloadStream = ShowDownloadStream;
+            copy.ShowUploadStream = ShowUploadStream;
+            copy.ShowOfflineActivityStream = ShowOfflineActivityStream;
+            copy.ShowDiskActivityStream = ShowDiskActivityStream;
+            copy.ScaleDownloadStream = ScaleDownloadStream;
+            copy.ScaleUploadStream = ScaleUploadStream;
+            copy.ScaleOfflineActivityStream = ScaleOfflineActivityStream;
+            copy.ScaleDiskActivityStream = ScaleDiskActivityStream;
             copy.DownloadColorArgb = DownloadColorArgb;
             copy.UploadColorArgb = UploadColorArgb;
             copy.OfflineActivityColorArgb = OfflineActivityColorArgb;
+            copy.DiskActivityColorArgb = DiskActivityColorArgb;
             return copy;
         }
     }
@@ -215,6 +244,9 @@ namespace OffNet
                 {"ShowTaskbarTrafficMeter", "Show permanent throughput meter on the Windows taskbar"},
                 {"TaskbarMeterFont", "Taskbar meter font"},
                 {"TaskbarTextShadow", "Text shadow in taskbar meter"},
+                {"TaskbarShadowColor", "Shadow color"},
+                {"TaskbarMeterWidth", "Taskbar meter width"},
+                {"AffectsScale", "Affects scale"},
                 {"TrafficHistory", "History window"},
                 {"TrafficSamplePoints", "Measurement points"},
                 {"TrafficScaleRefresh", "Dynamic scale update"},
@@ -223,13 +255,15 @@ namespace OffNet
                 {"Minutes", "minutes"},
                 {"DownloadColor", "Download"},
                 {"UploadColor", "Upload"},
-                {"OfflineActivityColor", "Offline activity"},
-                {"TrafficOptionsHint", "History, measurement points, scale timing and curve colors are shared by both graphs. A statistics theme styles the tray graph, while the permanent taskbar meter stays transparent and follows the Windows taskbar. Traffic sampling and the taskbar meter pause automatically while a true fullscreen application is in the foreground. Offline activity shows traffic on other active adapters while all OffNet-managed adapters are disabled."},
-                {"TrafficGraphTitle", "Network throughput — last {0}"},
+                {"OfflineActivityColor", "Offline network activity"},
+                {"DiskActivityColor", "Disk activity"},
+                {"TrafficOptionsHint", "Each stream has separate Show and Affects scale controls. A stream may therefore remain visible without changing the automatic Y-axis range. Disk activity is visible by default but does not affect scaling by default, keeping the graph primarily network-oriented. History, measurement points and scale timing are shared by both statistics views. Disk activity is combined read + write throughput of local physical disks in Mbit/s."},
+                {"TrafficGraphTitle", "System throughput — last {0}"},
                 {"TrafficDownload", "Download"},
                 {"TrafficUpload", "Upload"},
-                {"TrafficOfflineActivity", "Offline activity"},
-                {"TrafficCollecting", "Collecting traffic history..."},
+                {"TrafficOfflineActivity", "Offline network activity"},
+                {"TrafficDiskActivity", "Disk activity"},
+                {"TrafficCollecting", "Collecting activity history..."},
 
                 {"StartupChangeFailed", "The Windows startup setting could not be changed.\r\n\r\n{0}"},
                 {"OK", "OK"},
@@ -321,6 +355,9 @@ namespace OffNet
                 {"ShowTaskbarTrafficMeter", "Permanente Datendurchsatz-Anzeige in der Windows-Taskleiste anzeigen"},
                 {"TaskbarMeterFont", "Schriftart der Taskleisten-Anzeige"},
                 {"TaskbarTextShadow", "Textschatten in der Taskleisten-Anzeige"},
+                {"TaskbarShadowColor", "Schattenfarbe"},
+                {"TaskbarMeterWidth", "Breite der Taskleisten-Anzeige"},
+                {"AffectsScale", "Skala beeinflussen"},
                 {"TrafficHistory", "Verlaufsfenster"},
                 {"TrafficSamplePoints", "Messpunkte"},
                 {"TrafficScaleRefresh", "Dynamische Skalenanpassung"},
@@ -329,13 +366,15 @@ namespace OffNet
                 {"Minutes", "Minuten"},
                 {"DownloadColor", "Download"},
                 {"UploadColor", "Upload"},
-                {"OfflineActivityColor", "Offline-Aktivität"},
-                {"TrafficOptionsHint", "Verlauf, Messpunkte, Skalierungsintervall und Kurvenfarben gelten für beide Diagramme. Ein Statistik-Theme gestaltet den Tray-Graphen; die permanente Taskleisten-Anzeige bleibt transparent und folgt der Windows-Taskleiste. Bei einer echten Vollbildanwendung werden Traffic-Sampling und Taskleisten-Anzeige automatisch pausiert. Offline-Aktivität zeigt Datenverkehr auf anderen aktiven Adaptern, während alle von OffNet verwalteten Adapter deaktiviert sind."},
-                {"TrafficGraphTitle", "Netzwerkdurchsatz — letzte {0}"},
+                {"OfflineActivityColor", "Offline-Netzwerkaktivität"},
+                {"DiskActivityColor", "Datenträgeraktivität"},
+                {"TrafficOptionsHint", "Für jeden Stream gibt es getrennte Optionen für Anzeigen und Skala beeinflussen. Ein Stream kann also sichtbar bleiben, ohne die automatische Y-Skala zu verändern. Datenträgeraktivität ist standardmäßig sichtbar, beeinflusst die Skala aber standardmäßig nicht, damit der Graph primär netzwerkorientiert bleibt. Verlauf, Messpunkte und Skalierungsintervall gelten für beide Statistikansichten."},
+                {"TrafficGraphTitle", "Systemdurchsatz — letzte {0}"},
                 {"TrafficDownload", "Download"},
                 {"TrafficUpload", "Upload"},
-                {"TrafficOfflineActivity", "Offline-Aktivität"},
-                {"TrafficCollecting", "Datenverkehrsverlauf wird gesammelt..."},
+                {"TrafficOfflineActivity", "Offline-Netzwerkaktivität"},
+                {"TrafficDiskActivity", "Datenträgeraktivität"},
+                {"TrafficCollecting", "Aktivitätsverlauf wird gesammelt..."},
 
                 {"StartupChangeFailed", "Die Windows-Autostart-Einstellung konnte nicht geändert werden.\r\n\r\n{0}"},
                 {"OK", "OK"},
@@ -427,6 +466,9 @@ namespace OffNet
                 {"ShowTaskbarTrafficMeter", "Afficher en permanence le débit dans la barre des tâches Windows"},
                 {"TaskbarMeterFont", "Police de l’affichage de la barre des tâches"},
                 {"TaskbarTextShadow", "Ombre du texte dans l’affichage de la barre des tâches"},
+                {"TaskbarShadowColor", "Couleur de l’ombre"},
+                {"TaskbarMeterWidth", "Largeur de l’affichage de la barre des tâches"},
+                {"AffectsScale", "Influence l’échelle"},
                 {"TrafficHistory", "Fenêtre d’historique"},
                 {"TrafficSamplePoints", "Points de mesure"},
                 {"TrafficScaleRefresh", "Mise à jour dynamique de l’échelle"},
@@ -435,13 +477,15 @@ namespace OffNet
                 {"Minutes", "minutes"},
                 {"DownloadColor", "Téléchargement"},
                 {"UploadColor", "Envoi"},
-                {"OfflineActivityColor", "Activité hors ligne"},
-                {"TrafficOptionsHint", "L’historique, les points de mesure, l’intervalle d’échelle et les couleurs des courbes sont partagés par les deux graphiques. Un thème de statistiques habille le graphique du menu, tandis que l’affichage permanent de la barre des tâches reste transparent et suit Windows. L’échantillonnage du trafic et l’affichage de la barre des tâches sont automatiquement suspendus lorsqu’une véritable application plein écran est au premier plan. L’activité hors ligne montre le trafic sur d’autres adaptateurs actifs lorsque tous les adaptateurs gérés par OffNet sont désactivés."},
-                {"TrafficGraphTitle", "Débit réseau — dernières {0}"},
+                {"OfflineActivityColor", "Activité réseau hors ligne"},
+                {"DiskActivityColor", "Activité disque"},
+                {"TrafficOptionsHint", "Chaque flux possède des options distinctes Afficher et Influence l’échelle. Un flux peut donc rester visible sans modifier l’échelle Y automatique. L’activité disque est visible par défaut mais n’influence pas l’échelle par défaut afin de garder le graphique principalement orienté réseau. L’historique, les points de mesure et l’intervalle d’échelle sont communs aux deux vues."},
+                {"TrafficGraphTitle", "Débit système — dernières {0}"},
                 {"TrafficDownload", "Téléchargement"},
                 {"TrafficUpload", "Envoi"},
-                {"TrafficOfflineActivity", "Activité hors ligne"},
-                {"TrafficCollecting", "Collecte de l’historique du trafic..."},
+                {"TrafficOfflineActivity", "Activité réseau hors ligne"},
+                {"TrafficDiskActivity", "Activité disque"},
+                {"TrafficCollecting", "Collecte de l’historique d’activité..."},
 
                 {"StartupChangeFailed", "Le paramètre de démarrage automatique de Windows n’a pas pu être modifié.\r\n\r\n{0}"},
                 {"OK", "OK"},
@@ -617,15 +661,26 @@ namespace OffNet
                     else if (key == "show_taskbar_traffic_meter" && Boolean.TryParse(value, out boolValue)) settings.ShowTaskbarTrafficMeter = boolValue;
                     else if (key == "taskbar_meter_font" && !String.IsNullOrWhiteSpace(value)) settings.TaskbarMeterFontName = value;
                     else if (key == "taskbar_text_shadow" && Boolean.TryParse(value, out boolValue)) settings.TaskbarTextShadow = boolValue;
+                    else if (key == "taskbar_shadow_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.TaskbarShadowColorArgb = colorValue;
+                    else if (key == "taskbar_meter_width" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TaskbarMeterWidth = Math.Max(260, Math.Min(720, intValue));
                     else if (key == "traffic_history_seconds" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficHistorySeconds = Math.Max(10, Math.Min(600, ((intValue + 5) / 10) * 10));
                     else if (key == "traffic_history_minutes" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficHistorySeconds = Math.Max(10, Math.Min(600, intValue * 60));
                     else if (key == "traffic_sample_points" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficSamplePoints = Math.Max(10, Math.Min(300, intValue));
                     else if (key == "traffic_scale_refresh_seconds" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficScaleRefreshSeconds = Math.Max(1, Math.Min(30, intValue));
                     else if (key == "statistics_theme" && !String.IsNullOrWhiteSpace(value)) settings.StatisticsTheme = value;
                     else if (key == "application_theme" && !String.IsNullOrWhiteSpace(value)) settings.ApplicationTheme = value;
+                    else if (key == "show_download_stream" && Boolean.TryParse(value, out boolValue)) settings.ShowDownloadStream = boolValue;
+                    else if (key == "show_upload_stream" && Boolean.TryParse(value, out boolValue)) settings.ShowUploadStream = boolValue;
+                    else if (key == "show_offline_activity_stream" && Boolean.TryParse(value, out boolValue)) settings.ShowOfflineActivityStream = boolValue;
+                    else if (key == "show_disk_activity_stream" && Boolean.TryParse(value, out boolValue)) settings.ShowDiskActivityStream = boolValue;
+                    else if (key == "scale_download_stream" && Boolean.TryParse(value, out boolValue)) settings.ScaleDownloadStream = boolValue;
+                    else if (key == "scale_upload_stream" && Boolean.TryParse(value, out boolValue)) settings.ScaleUploadStream = boolValue;
+                    else if (key == "scale_offline_activity_stream" && Boolean.TryParse(value, out boolValue)) settings.ScaleOfflineActivityStream = boolValue;
+                    else if (key == "scale_disk_activity_stream" && Boolean.TryParse(value, out boolValue)) settings.ScaleDiskActivityStream = boolValue;
                     else if (key == "download_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DownloadColorArgb = colorValue;
                     else if (key == "upload_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.UploadColorArgb = colorValue;
                     else if (key == "offline_activity_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.OfflineActivityColorArgb = colorValue;
+                    else if (key == "disk_activity_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.DiskActivityColorArgb = colorValue;
                 }
             }
             catch { }
@@ -649,14 +704,25 @@ namespace OffNet
             lines.Add("show_taskbar_traffic_meter=" + (settings.ShowTaskbarTrafficMeter ? "true" : "false"));
             lines.Add("taskbar_meter_font=" + (String.IsNullOrWhiteSpace(settings.TaskbarMeterFontName) ? "Segoe UI Semibold" : settings.TaskbarMeterFontName));
             lines.Add("taskbar_text_shadow=" + (settings.TaskbarTextShadow ? "true" : "false"));
+            lines.Add("taskbar_shadow_color=" + settings.TaskbarShadowColorArgb.ToString(CultureInfo.InvariantCulture));
+            lines.Add("taskbar_meter_width=" + settings.TaskbarMeterWidth.ToString(CultureInfo.InvariantCulture));
             lines.Add("traffic_history_seconds=" + settings.TrafficHistorySeconds.ToString(CultureInfo.InvariantCulture));
             lines.Add("traffic_sample_points=" + settings.TrafficSamplePoints.ToString(CultureInfo.InvariantCulture));
             lines.Add("traffic_scale_refresh_seconds=" + settings.TrafficScaleRefreshSeconds.ToString(CultureInfo.InvariantCulture));
             lines.Add("statistics_theme=" + (String.IsNullOrWhiteSpace(settings.StatisticsTheme) ? "Dark" : settings.StatisticsTheme));
             lines.Add("application_theme=" + (String.IsNullOrWhiteSpace(settings.ApplicationTheme) ? "Muffin" : settings.ApplicationTheme));
+            lines.Add("show_download_stream=" + (settings.ShowDownloadStream ? "true" : "false"));
+            lines.Add("show_upload_stream=" + (settings.ShowUploadStream ? "true" : "false"));
+            lines.Add("show_offline_activity_stream=" + (settings.ShowOfflineActivityStream ? "true" : "false"));
+            lines.Add("show_disk_activity_stream=" + (settings.ShowDiskActivityStream ? "true" : "false"));
+            lines.Add("scale_download_stream=" + (settings.ScaleDownloadStream ? "true" : "false"));
+            lines.Add("scale_upload_stream=" + (settings.ScaleUploadStream ? "true" : "false"));
+            lines.Add("scale_offline_activity_stream=" + (settings.ScaleOfflineActivityStream ? "true" : "false"));
+            lines.Add("scale_disk_activity_stream=" + (settings.ScaleDiskActivityStream ? "true" : "false"));
             lines.Add("download_color=" + settings.DownloadColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("upload_color=" + settings.UploadColorArgb.ToString(CultureInfo.InvariantCulture));
             lines.Add("offline_activity_color=" + settings.OfflineActivityColorArgb.ToString(CultureInfo.InvariantCulture));
+            lines.Add("disk_activity_color=" + settings.DiskActivityColorArgb.ToString(CultureInfo.InvariantCulture));
             File.WriteAllLines(SettingsFile, lines.ToArray(), new UTF8Encoding(false));
         }
     }
@@ -673,6 +739,31 @@ namespace OffNet
         internal const uint CR_SUCCESS = 0x00000000;
         internal const uint CM_PROB_DISABLED = 22;
         internal static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+
+        internal const uint FILE_SHARE_READ = 0x00000001;
+        internal const uint FILE_SHARE_WRITE = 0x00000002;
+        internal const uint FILE_SHARE_DELETE = 0x00000004;
+        internal const uint OPEN_EXISTING = 3;
+        internal const uint IOCTL_DISK_PERFORMANCE = 0x00070020;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct DISK_PERFORMANCE
+        {
+            internal long BytesRead;
+            internal long BytesWritten;
+            internal long ReadTime;
+            internal long WriteTime;
+            internal long IdleTime;
+            internal uint ReadCount;
+            internal uint WriteCount;
+            internal uint QueueDepth;
+            internal uint SplitCount;
+            internal long QueryTime;
+            internal uint StorageDeviceNumber;
+
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8)]
+            internal string StorageManagerName;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct SP_DEVINFO_DATA
@@ -799,6 +890,32 @@ namespace OffNet
         internal static extern bool GetMonitorInfo(
             IntPtr hMonitor,
             ref MONITORINFO lpmi);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern IntPtr CreateFile(
+            string lpFileName,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool DeviceIoControl(
+            IntPtr hDevice,
+            uint dwIoControlCode,
+            IntPtr lpInBuffer,
+            uint nInBufferSize,
+            out DISK_PERFORMANCE lpOutBuffer,
+            uint nOutBufferSize,
+            out uint lpBytesReturned,
+            IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CloseHandle(IntPtr hObject);
 
         [DllImport("wininet.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -1801,7 +1918,8 @@ namespace OffNet
 
         internal double GetMaximum(
             List<TrafficSample> samples,
-            int refreshSeconds)
+            int refreshSeconds,
+            AppSettings settings)
         {
             DateTime now = DateTime.UtcNow;
             int seconds = Math.Max(1, Math.Min(30, refreshSeconds));
@@ -1811,23 +1929,53 @@ namespace OffNet
 
             DateTime start = now.AddSeconds(-seconds);
             double peak = 0.0;
+            bool hasScaleSource = settings == null;
 
-            if (samples != null)
+            if (settings != null)
+            {
+                hasScaleSource =
+                    (settings.ShowDownloadStream && settings.ScaleDownloadStream) ||
+                    (settings.ShowUploadStream && settings.ScaleUploadStream) ||
+                    (settings.ShowOfflineActivityStream && settings.ScaleOfflineActivityStream) ||
+                    (settings.ShowDiskActivityStream && settings.ScaleDiskActivityStream);
+            }
+
+            if (samples != null && hasScaleSource)
             {
                 foreach (TrafficSample sample in samples)
                 {
                     if (sample.TimestampUtc < start)
                         continue;
 
-                    peak = Math.Max(peak, sample.DownloadMbps);
-                    peak = Math.Max(peak, sample.UploadMbps);
+                    if (settings == null ||
+                        (settings.ShowDownloadStream && settings.ScaleDownloadStream))
+                    {
+                        peak = Math.Max(peak, sample.DownloadMbps);
+                    }
 
-                    if (sample.ManagedDisabled)
+                    if (settings == null ||
+                        (settings.ShowUploadStream && settings.ScaleUploadStream))
+                    {
+                        peak = Math.Max(peak, sample.UploadMbps);
+                    }
+
+                    if ((settings == null ||
+                         (settings.ShowOfflineActivityStream && settings.ScaleOfflineActivityStream)) &&
+                        sample.ManagedDisabled)
+                    {
                         peak = Math.Max(peak, sample.OfflineActivityMbps);
+                    }
+
+                    if (settings == null ||
+                        (settings.ShowDiskActivityStream && settings.ScaleDiskActivityStream))
+                    {
+                        peak = Math.Max(peak, sample.DiskActivityMbps);
+                    }
                 }
             }
 
-            currentMaximum = NiceMaximum(peak * 1.10);
+            if (hasScaleSource)
+                currentMaximum = NiceMaximum(peak * 1.10);
             nextRefreshUtc = now.AddSeconds(seconds);
             return currentMaximum;
         }
@@ -1837,20 +1985,22 @@ namespace OffNet
             if (value <= 0.08)
                 return 0.1;
 
+            // Use ten subdivisions per decimal decade instead of the old
+            // coarse 1 / 1.5 / 2 / 3 / 5 / 7.5 / 10 ladder. This keeps
+            // useful headroom without wasting most of the graph vertically.
+            // Example: 98.9 Mbit * 1.10 = 108.8 -> 110 Mbit, not 150 Mbit.
             double exponent =
                 Math.Pow(10.0, Math.Floor(Math.Log10(value)));
-            double normalized = value / exponent;
-            double nice;
 
-            if (normalized <= 1.0) nice = 1.0;
-            else if (normalized <= 1.5) nice = 1.5;
-            else if (normalized <= 2.0) nice = 2.0;
-            else if (normalized <= 3.0) nice = 3.0;
-            else if (normalized <= 5.0) nice = 5.0;
-            else if (normalized <= 7.5) nice = 7.5;
-            else nice = 10.0;
+            double step = exponent / 10.0;
 
-            return nice * exponent;
+            if (step <= 0.0)
+                return value;
+
+            double rounded =
+                Math.Ceiling((value - (step * 1e-9)) / step) * step;
+
+            return Math.Max(step, rounded);
         }
     }
 
@@ -1876,6 +2026,11 @@ namespace OffNet
         private readonly Label taskbarFontLabel;
         private readonly ComboBox taskbarFontBox;
         private readonly CheckBox taskbarTextShadowCheckBox;
+        private readonly Label taskbarShadowColorLabel;
+        private readonly Button taskbarShadowColorButton;
+        private readonly Label taskbarMeterWidthLabel;
+        private readonly TrackBar taskbarMeterWidthSlider;
+        private readonly Label taskbarMeterWidthValue;
         private readonly Label trafficHistoryLabel;
         private readonly TrackBar trafficHistorySlider;
         private readonly Label trafficHistoryValue;
@@ -1887,13 +2042,19 @@ namespace OffNet
         private readonly Label trafficScaleRefreshValue;
         private readonly Label statisticsThemeLabel;
         private readonly ComboBox statisticsThemeBox;
-        private readonly Label downloadLabel;
-        private readonly Label uploadLabel;
-        private readonly Label offlineActivityLabel;
+        private readonly CheckBox downloadStreamCheckBox;
+        private readonly CheckBox uploadStreamCheckBox;
+        private readonly CheckBox offlineActivityStreamCheckBox;
+        private readonly CheckBox diskActivityStreamCheckBox;
+        private readonly CheckBox scaleDownloadCheckBox;
+        private readonly CheckBox scaleUploadCheckBox;
+        private readonly CheckBox scaleOfflineActivityCheckBox;
+        private readonly CheckBox scaleDiskActivityCheckBox;
         private readonly Label trafficHintLabel;
         private Button downloadButton;
         private Button uploadButton;
         private Button offlineActivityButton;
+        private Button diskActivityButton;
 
         private readonly CheckBox startupCheckBox;
         private readonly Button defaultsButton;
@@ -1908,6 +2069,8 @@ namespace OffNet
         private Color downloadColor;
         private Color uploadColor;
         private Color offlineActivityColor;
+        private Color diskActivityColor;
+        private Color taskbarShadowColor;
         private bool applyingLanguage;
 
         internal AppSettings ResultSettings { get; private set; }
@@ -1923,6 +2086,8 @@ namespace OffNet
             downloadColor = Color.FromArgb(current.DownloadColorArgb);
             uploadColor = Color.FromArgb(current.UploadColorArgb);
             offlineActivityColor = Color.FromArgb(current.OfflineActivityColorArgb);
+            diskActivityColor = Color.FromArgb(current.DiskActivityColorArgb);
+            taskbarShadowColor = Color.FromArgb(current.TaskbarShadowColorArgb);
 
             ResultStartWithWindows = startWithWindows;
 
@@ -1937,7 +2102,7 @@ namespace OffNet
             Height = 920;
             MinimumSize = new Size(660, 560);
             AutoScroll = true;
-            AutoScrollMinSize = new Size(660, 960);
+            AutoScrollMinSize = new Size(660, 1140);
             Font = new Font("Segoe UI", 9.0f);
 
             languageLabel = new Label();
@@ -2001,7 +2166,7 @@ namespace OffNet
 
             trafficGroup = new GroupBox();
             trafficGroup.Location = new Point(16, 294);
-            trafficGroup.Size = new Size(628, 535);
+            trafficGroup.Size = new Size(628, 720);
             Controls.Add(trafficGroup);
 
             trafficOverviewCheckBox = new CheckBox();
@@ -2037,9 +2202,66 @@ namespace OffNet
             taskbarTextShadowCheckBox.Checked = current.TaskbarTextShadow;
             trafficGroup.Controls.Add(taskbarTextShadowCheckBox);
 
+            taskbarShadowColorLabel = new Label();
+            taskbarShadowColorLabel.AutoSize = false;
+            taskbarShadowColorLabel.Location = new Point(16, 148);
+            taskbarShadowColorLabel.Size = new Size(300, 24);
+            trafficGroup.Controls.Add(taskbarShadowColorLabel);
+
+            taskbarShadowColorButton = new Button();
+            taskbarShadowColorButton.Location = new Point(390, 144);
+            taskbarShadowColorButton.Size = new Size(210, 30);
+            taskbarShadowColorButton.Click += delegate
+            {
+                taskbarShadowColor = PickColor(taskbarShadowColor);
+                UpdateColorButtons();
+            };
+            trafficGroup.Controls.Add(taskbarShadowColorButton);
+
+            taskbarMeterWidthLabel = new Label();
+            taskbarMeterWidthLabel.AutoSize = false;
+            taskbarMeterWidthLabel.Location = new Point(16, 184);
+            taskbarMeterWidthLabel.Size = new Size(200, 24);
+            trafficGroup.Controls.Add(taskbarMeterWidthLabel);
+
+            taskbarMeterWidthSlider = new TrackBar();
+            taskbarMeterWidthSlider.Minimum = 260;
+            taskbarMeterWidthSlider.Maximum = 720;
+            taskbarMeterWidthSlider.TickFrequency = 50;
+            taskbarMeterWidthSlider.SmallChange = 10;
+            taskbarMeterWidthSlider.LargeChange = 50;
+            taskbarMeterWidthSlider.AutoSize = false;
+            taskbarMeterWidthSlider.Location = new Point(230, 178);
+            taskbarMeterWidthSlider.Size = new Size(300, 34);
+            taskbarMeterWidthSlider.Value =
+                Math.Max(260, Math.Min(720, current.TaskbarMeterWidth));
+            trafficGroup.Controls.Add(taskbarMeterWidthSlider);
+
+            taskbarMeterWidthValue = new Label();
+            taskbarMeterWidthValue.AutoSize = false;
+            taskbarMeterWidthValue.TextAlign = ContentAlignment.MiddleRight;
+            taskbarMeterWidthValue.Location = new Point(538, 181);
+            taskbarMeterWidthValue.Size = new Size(70, 24);
+            taskbarMeterWidthValue.Text =
+                taskbarMeterWidthSlider.Value.ToString(CultureInfo.CurrentCulture) +
+                " px";
+            trafficGroup.Controls.Add(taskbarMeterWidthValue);
+
+            taskbarMeterWidthSlider.ValueChanged += delegate
+            {
+                taskbarMeterWidthValue.Text =
+                    taskbarMeterWidthSlider.Value.ToString(CultureInfo.CurrentCulture) +
+                    " px";
+            };
+
+            taskbarTextShadowCheckBox.CheckedChanged += delegate
+            {
+                UpdateShadowControls();
+            };
+
             trafficHistoryLabel = new Label();
             trafficHistoryLabel.AutoSize = false;
-            trafficHistoryLabel.Location = new Point(16, 150);
+            trafficHistoryLabel.Location = new Point(16, 222);
             trafficHistoryLabel.Size = new Size(190, 24);
             trafficGroup.Controls.Add(trafficHistoryLabel);
 
@@ -2050,7 +2272,7 @@ namespace OffNet
             trafficHistorySlider.SmallChange = 1;
             trafficHistorySlider.LargeChange = 6;
             trafficHistorySlider.AutoSize = false;
-            trafficHistorySlider.Location = new Point(230, 144);
+            trafficHistorySlider.Location = new Point(230, 216);
             trafficHistorySlider.Size = new Size(300, 34);
             trafficHistorySlider.Value =
                 Math.Max(1, Math.Min(60, current.TrafficHistorySeconds / 10));
@@ -2059,7 +2281,7 @@ namespace OffNet
             trafficHistoryValue = new Label();
             trafficHistoryValue.AutoSize = false;
             trafficHistoryValue.TextAlign = ContentAlignment.MiddleRight;
-            trafficHistoryValue.Location = new Point(538, 147);
+            trafficHistoryValue.Location = new Point(538, 219);
             trafficHistoryValue.Size = new Size(70, 24);
             trafficGroup.Controls.Add(trafficHistoryValue);
 
@@ -2074,7 +2296,7 @@ namespace OffNet
 
             trafficSamplePointsLabel = new Label();
             trafficSamplePointsLabel.AutoSize = false;
-            trafficSamplePointsLabel.Location = new Point(16, 180);
+            trafficSamplePointsLabel.Location = new Point(16, 252);
             trafficSamplePointsLabel.Size = new Size(200, 24);
             trafficGroup.Controls.Add(trafficSamplePointsLabel);
 
@@ -2085,7 +2307,7 @@ namespace OffNet
             trafficSamplePointsSlider.SmallChange = 10;
             trafficSamplePointsSlider.LargeChange = 25;
             trafficSamplePointsSlider.AutoSize = false;
-            trafficSamplePointsSlider.Location = new Point(230, 175);
+            trafficSamplePointsSlider.Location = new Point(230, 247);
             trafficSamplePointsSlider.Size = new Size(300, 34);
             trafficSamplePointsSlider.Value = Math.Max(10, Math.Min(300, current.TrafficSamplePoints));
             trafficGroup.Controls.Add(trafficSamplePointsSlider);
@@ -2093,7 +2315,7 @@ namespace OffNet
             trafficSamplePointsValue = new Label();
             trafficSamplePointsValue.AutoSize = false;
             trafficSamplePointsValue.TextAlign = ContentAlignment.MiddleRight;
-            trafficSamplePointsValue.Location = new Point(538, 177);
+            trafficSamplePointsValue.Location = new Point(538, 249);
             trafficSamplePointsValue.Size = new Size(70, 24);
             trafficSamplePointsValue.Text = trafficSamplePointsSlider.Value.ToString(CultureInfo.InvariantCulture);
             trafficGroup.Controls.Add(trafficSamplePointsValue);
@@ -2106,7 +2328,7 @@ namespace OffNet
 
             trafficScaleRefreshLabel = new Label();
             trafficScaleRefreshLabel.AutoSize = false;
-            trafficScaleRefreshLabel.Location = new Point(16, 218);
+            trafficScaleRefreshLabel.Location = new Point(16, 290);
             trafficScaleRefreshLabel.Size = new Size(200, 24);
             trafficGroup.Controls.Add(trafficScaleRefreshLabel);
 
@@ -2117,7 +2339,7 @@ namespace OffNet
             trafficScaleRefreshSlider.SmallChange = 1;
             trafficScaleRefreshSlider.LargeChange = 5;
             trafficScaleRefreshSlider.AutoSize = false;
-            trafficScaleRefreshSlider.Location = new Point(230, 212);
+            trafficScaleRefreshSlider.Location = new Point(230, 284);
             trafficScaleRefreshSlider.Size = new Size(300, 34);
             trafficScaleRefreshSlider.Value =
                 Math.Max(1, Math.Min(30, current.TrafficScaleRefreshSeconds));
@@ -2126,7 +2348,7 @@ namespace OffNet
             trafficScaleRefreshValue = new Label();
             trafficScaleRefreshValue.AutoSize = false;
             trafficScaleRefreshValue.TextAlign = ContentAlignment.MiddleRight;
-            trafficScaleRefreshValue.Location = new Point(538, 215);
+            trafficScaleRefreshValue.Location = new Point(538, 287);
             trafficScaleRefreshValue.Size = new Size(70, 24);
             trafficScaleRefreshValue.Text =
                 trafficScaleRefreshSlider.Value.ToString(CultureInfo.CurrentCulture) +
@@ -2142,13 +2364,13 @@ namespace OffNet
 
             statisticsThemeLabel = new Label();
             statisticsThemeLabel.AutoSize = false;
-            statisticsThemeLabel.Location = new Point(16, 256);
+            statisticsThemeLabel.Location = new Point(16, 328);
             statisticsThemeLabel.Size = new Size(190, 24);
             trafficGroup.Controls.Add(statisticsThemeLabel);
 
             statisticsThemeBox = new ComboBox();
             statisticsThemeBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            statisticsThemeBox.Location = new Point(230, 252);
+            statisticsThemeBox.Location = new Point(230, 324);
             statisticsThemeBox.Size = new Size(200, 24);
             statisticsThemeBox.Items.AddRange(new object[]
             {
@@ -2169,29 +2391,62 @@ namespace OffNet
                 statisticsThemeBox.SelectedItem = "Dark";
             trafficGroup.Controls.Add(statisticsThemeBox);
 
-            downloadLabel = AddColorRow(trafficGroup, 294, out downloadButton);
-            uploadLabel = AddColorRow(trafficGroup, 334, out uploadButton);
-            offlineActivityLabel = AddColorRow(trafficGroup, 374, out offlineActivityButton);
+            downloadStreamCheckBox =
+                AddTrafficStreamRow(
+                    trafficGroup,
+                    372,
+                    current.ShowDownloadStream,
+                    current.ScaleDownloadStream,
+                    out scaleDownloadCheckBox,
+                    out downloadButton);
+
+            uploadStreamCheckBox =
+                AddTrafficStreamRow(
+                    trafficGroup,
+                    412,
+                    current.ShowUploadStream,
+                    current.ScaleUploadStream,
+                    out scaleUploadCheckBox,
+                    out uploadButton);
+
+            offlineActivityStreamCheckBox =
+                AddTrafficStreamRow(
+                    trafficGroup,
+                    452,
+                    current.ShowOfflineActivityStream,
+                    current.ScaleOfflineActivityStream,
+                    out scaleOfflineActivityCheckBox,
+                    out offlineActivityButton);
+
+            diskActivityStreamCheckBox =
+                AddTrafficStreamRow(
+                    trafficGroup,
+                    492,
+                    current.ShowDiskActivityStream,
+                    current.ScaleDiskActivityStream,
+                    out scaleDiskActivityCheckBox,
+                    out diskActivityButton);
 
             downloadButton.Click += delegate { downloadColor = PickColor(downloadColor); UpdateColorButtons(); };
             uploadButton.Click += delegate { uploadColor = PickColor(uploadColor); UpdateColorButtons(); };
             offlineActivityButton.Click += delegate { offlineActivityColor = PickColor(offlineActivityColor); UpdateColorButtons(); };
+            diskActivityButton.Click += delegate { diskActivityColor = PickColor(diskActivityColor); UpdateColorButtons(); };
 
             trafficHintLabel = new Label();
             trafficHintLabel.AutoSize = false;
-            trafficHintLabel.Location = new Point(16, 414);
-            trafficHintLabel.Size = new Size(592, 108);
+            trafficHintLabel.Location = new Point(16, 536);
+            trafficHintLabel.Size = new Size(592, 170);
             trafficGroup.Controls.Add(trafficHintLabel);
 
             startupCheckBox = new CheckBox();
             startupCheckBox.AutoSize = false;
-            startupCheckBox.Location = new Point(18, 842);
+            startupCheckBox.Location = new Point(18, 1027);
             startupCheckBox.Size = new Size(620, 34);
             startupCheckBox.Checked = startWithWindows;
             Controls.Add(startupCheckBox);
 
             defaultsButton = new Button();
-            defaultsButton.Location = new Point(16, 886);
+            defaultsButton.Location = new Point(16, 1071);
             defaultsButton.Size = new Size(165, 32);
             defaultsButton.Click += delegate
             {
@@ -2202,6 +2457,19 @@ namespace OffNet
                 downloadColor = Color.DodgerBlue;
                 uploadColor = Color.DarkOrange;
                 offlineActivityColor = Color.MediumPurple;
+                diskActivityColor = Color.DeepPink;
+
+                downloadStreamCheckBox.Checked = true;
+                uploadStreamCheckBox.Checked = true;
+                offlineActivityStreamCheckBox.Checked = true;
+                diskActivityStreamCheckBox.Checked = true;
+                scaleDownloadCheckBox.Checked = true;
+                scaleUploadCheckBox.Checked = true;
+                scaleOfflineActivityCheckBox.Checked = true;
+                scaleDiskActivityCheckBox.Checked = false;
+
+                taskbarShadowColor = Color.Black;
+                taskbarMeterWidthSlider.Value = 420;
                 trafficHistorySlider.Value = 6;
                 trafficSamplePointsSlider.Value = 75;
                 trafficScaleRefreshSlider.Value = 5;
@@ -2213,17 +2481,18 @@ namespace OffNet
                 SelectTaskbarFont("Segoe UI Semibold");
 
                 UpdateColorButtons();
+                UpdateShadowControls();
             };
             Controls.Add(defaultsButton);
 
             projectButton = new Button();
-            projectButton.Location = new Point(190, 886);
+            projectButton.Location = new Point(190, 1071);
             projectButton.Size = new Size(190, 32);
             projectButton.Click += delegate { ShellHelper.OpenProjectPage(); };
             Controls.Add(projectButton);
 
             okButton = new Button();
-            okButton.Location = new Point(454, 886);
+            okButton.Location = new Point(454, 1071);
             okButton.Size = new Size(90, 32);
             okButton.Click += delegate
             {
@@ -2236,7 +2505,7 @@ namespace OffNet
             Controls.Add(okButton);
 
             cancelButton = new Button();
-            cancelButton.Location = new Point(554, 886);
+            cancelButton.Location = new Point(554, 1071);
             cancelButton.Size = new Size(90, 32);
             cancelButton.DialogResult = DialogResult.Cancel;
             Controls.Add(cancelButton);
@@ -2328,6 +2597,36 @@ namespace OffNet
             parent.Controls.Add(button);
 
             return label;
+        }
+
+        private CheckBox AddTrafficStreamRow(
+            Control parent,
+            int y,
+            bool isChecked,
+            bool affectsScale,
+            out CheckBox scaleCheckBox,
+            out Button button)
+        {
+            CheckBox checkBox = new CheckBox();
+            checkBox.AutoSize = false;
+            checkBox.Location = new Point(14, y + 4);
+            checkBox.Size = new Size(265, 26);
+            checkBox.Checked = isChecked;
+            parent.Controls.Add(checkBox);
+
+            scaleCheckBox = new CheckBox();
+            scaleCheckBox.AutoSize = false;
+            scaleCheckBox.Location = new Point(286, y + 4);
+            scaleCheckBox.Size = new Size(145, 26);
+            scaleCheckBox.Checked = affectsScale;
+            parent.Controls.Add(scaleCheckBox);
+
+            button = new Button();
+            button.Location = new Point(440, y);
+            button.Size = new Size(160, 30);
+            parent.Controls.Add(button);
+
+            return checkBox;
         }
 
         private void FillLanguages(string selectCode)
@@ -2460,6 +2759,16 @@ namespace OffNet
             SetColorButton(downloadButton, downloadColor);
             SetColorButton(uploadButton, uploadColor);
             SetColorButton(offlineActivityButton, offlineActivityColor);
+            SetColorButton(diskActivityButton, diskActivityColor);
+            SetColorButton(taskbarShadowColorButton, taskbarShadowColor);
+            UpdateShadowControls();
+        }
+
+        private void UpdateShadowControls()
+        {
+            bool enabled = taskbarTextShadowCheckBox.Checked;
+            taskbarShadowColorLabel.Enabled = enabled;
+            taskbarShadowColorButton.Enabled = enabled;
         }
 
         private static void SetColorButton(Button button, Color color)
@@ -2487,13 +2796,20 @@ namespace OffNet
             taskbarTrafficCheckBox.Text = Localization.T("ShowTaskbarTrafficMeter");
             taskbarFontLabel.Text = Localization.T("TaskbarMeterFont");
             taskbarTextShadowCheckBox.Text = Localization.T("TaskbarTextShadow");
+            taskbarShadowColorLabel.Text = Localization.T("TaskbarShadowColor");
+            taskbarMeterWidthLabel.Text = Localization.T("TaskbarMeterWidth");
             trafficHistoryLabel.Text = Localization.T("TrafficHistory");
             trafficSamplePointsLabel.Text = Localization.T("TrafficSamplePoints");
             trafficScaleRefreshLabel.Text = Localization.T("TrafficScaleRefresh");
             statisticsThemeLabel.Text = Localization.T("StatisticsTheme");
-            downloadLabel.Text = Localization.T("DownloadColor");
-            uploadLabel.Text = Localization.T("UploadColor");
-            offlineActivityLabel.Text = Localization.T("OfflineActivityColor");
+            downloadStreamCheckBox.Text = Localization.T("DownloadColor");
+            uploadStreamCheckBox.Text = Localization.T("UploadColor");
+            offlineActivityStreamCheckBox.Text = Localization.T("OfflineActivityColor");
+            diskActivityStreamCheckBox.Text = Localization.T("DiskActivityColor");
+            scaleDownloadCheckBox.Text = Localization.T("AffectsScale");
+            scaleUploadCheckBox.Text = Localization.T("AffectsScale");
+            scaleOfflineActivityCheckBox.Text = Localization.T("AffectsScale");
+            scaleDiskActivityCheckBox.Text = Localization.T("AffectsScale");
             trafficHintLabel.Text = Localization.T("TrafficOptionsHint");
 
             startupCheckBox.Text = Localization.T("StartWithWindows");
@@ -2519,6 +2835,8 @@ namespace OffNet
                     ? "Segoe UI Semibold"
                     : taskbarFontBox.SelectedItem.ToString();
             ResultSettings.TaskbarTextShadow = taskbarTextShadowCheckBox.Checked;
+            ResultSettings.TaskbarShadowColorArgb = taskbarShadowColor.ToArgb();
+            ResultSettings.TaskbarMeterWidth = taskbarMeterWidthSlider.Value;
             ResultSettings.TrafficHistorySeconds = trafficHistorySlider.Value * 10;
             ResultSettings.TrafficSamplePoints = trafficSamplePointsSlider.Value;
             ResultSettings.TrafficScaleRefreshSeconds = trafficScaleRefreshSlider.Value;
@@ -2530,9 +2848,20 @@ namespace OffNet
                 applicationThemeBox.SelectedItem == null
                     ? "Muffin"
                     : applicationThemeBox.SelectedItem.ToString();
+
+            ResultSettings.ShowDownloadStream = downloadStreamCheckBox.Checked;
+            ResultSettings.ShowUploadStream = uploadStreamCheckBox.Checked;
+            ResultSettings.ShowOfflineActivityStream = offlineActivityStreamCheckBox.Checked;
+            ResultSettings.ShowDiskActivityStream = diskActivityStreamCheckBox.Checked;
+            ResultSettings.ScaleDownloadStream = scaleDownloadCheckBox.Checked;
+            ResultSettings.ScaleUploadStream = scaleUploadCheckBox.Checked;
+            ResultSettings.ScaleOfflineActivityStream = scaleOfflineActivityCheckBox.Checked;
+            ResultSettings.ScaleDiskActivityStream = scaleDiskActivityCheckBox.Checked;
+
             ResultSettings.DownloadColorArgb = downloadColor.ToArgb();
             ResultSettings.UploadColorArgb = uploadColor.ToArgb();
             ResultSettings.OfflineActivityColorArgb = offlineActivityColor.ToArgb();
+            ResultSettings.DiskActivityColorArgb = diskActivityColor.ToArgb();
 
             ResultStartWithWindows = startupCheckBox.Checked;
         }
@@ -2901,12 +3230,180 @@ namespace OffNet
         }
     }
 
+    internal sealed class DiskActivityCounter : IDisposable
+    {
+        private readonly object sync = new object();
+        private readonly List<IntPtr> handles = new List<IntPtr>();
+        private DateTime nextRefreshUtc = DateTime.MinValue;
+        private DateTime lastSampleUtc = DateTime.MinValue;
+        private long previousTotalBytes;
+        private bool hasBaseline;
+
+        internal double SampleMbps(DateTime now)
+        {
+            lock (sync)
+            {
+                if (now >= nextRefreshUtc || handles.Count == 0)
+                    RefreshHandles(now);
+
+                long totalBytes;
+                if (!TryReadTotalBytes(out totalBytes))
+                    return 0.0;
+
+                if (!hasBaseline || lastSampleUtc == DateTime.MinValue)
+                {
+                    previousTotalBytes = totalBytes;
+                    lastSampleUtc = now;
+                    hasBaseline = true;
+                    return 0.0;
+                }
+
+                double elapsedSeconds =
+                    (now - lastSampleUtc).TotalSeconds;
+
+                long deltaBytes =
+                    totalBytes >= previousTotalBytes
+                        ? totalBytes - previousTotalBytes
+                        : 0;
+
+                previousTotalBytes = totalBytes;
+                lastSampleUtc = now;
+
+                if (elapsedSeconds <= 0.0 || elapsedSeconds > 1200.0)
+                    return 0.0;
+
+                return
+                    (deltaBytes * 8.0) /
+                    (elapsedSeconds * 1000000.0);
+            }
+        }
+
+        internal void Reset()
+        {
+            lock (sync)
+            {
+                previousTotalBytes = 0;
+                lastSampleUtc = DateTime.MinValue;
+                hasBaseline = false;
+            }
+        }
+
+        private void RefreshHandles(DateTime now)
+        {
+            CloseHandles();
+
+            // PhysicalDrive numbers are normally compact. Scanning 0..31 once
+            // every 5 minutes keeps hot-plugged local disks covered without
+            // requiring WMI, PowerShell, localized performance-counter names,
+            // or additional background services.
+            for (int index = 0; index < 32; index++)
+            {
+                string path =
+                    @"\\.\PhysicalDrive" +
+                    index.ToString(
+                        CultureInfo.InvariantCulture);
+
+                IntPtr handle =
+                    NativeMethods.CreateFile(
+                        path,
+                        0,
+                        NativeMethods.FILE_SHARE_READ |
+                        NativeMethods.FILE_SHARE_WRITE |
+                        NativeMethods.FILE_SHARE_DELETE,
+                        IntPtr.Zero,
+                        NativeMethods.OPEN_EXISTING,
+                        0,
+                        IntPtr.Zero);
+
+                if (handle != IntPtr.Zero &&
+                    handle != NativeMethods.INVALID_HANDLE_VALUE)
+                {
+                    handles.Add(handle);
+                }
+            }
+
+            previousTotalBytes = 0;
+            lastSampleUtc = DateTime.MinValue;
+            hasBaseline = false;
+            nextRefreshUtc = now.AddMinutes(5);
+        }
+
+        private bool TryReadTotalBytes(out long totalBytes)
+        {
+            totalBytes = 0;
+            bool gotAny = false;
+
+            foreach (IntPtr handle in handles)
+            {
+                NativeMethods.DISK_PERFORMANCE performance;
+                uint returned;
+
+                bool ok =
+                    NativeMethods.DeviceIoControl(
+                        handle,
+                        NativeMethods.IOCTL_DISK_PERFORMANCE,
+                        IntPtr.Zero,
+                        0,
+                        out performance,
+                        (uint)Marshal.SizeOf(
+                            typeof(NativeMethods.DISK_PERFORMANCE)),
+                        out returned,
+                        IntPtr.Zero);
+
+                if (!ok)
+                    continue;
+
+                long bytesRead =
+                    Math.Max(0L, performance.BytesRead);
+
+                long bytesWritten =
+                    Math.Max(0L, performance.BytesWritten);
+
+                totalBytes += bytesRead + bytesWritten;
+                gotAny = true;
+            }
+
+            return gotAny;
+        }
+
+        private void CloseHandles()
+        {
+            foreach (IntPtr handle in handles)
+            {
+                try
+                {
+                    if (handle != IntPtr.Zero &&
+                        handle != NativeMethods.INVALID_HANDLE_VALUE)
+                    {
+                        NativeMethods.CloseHandle(handle);
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            handles.Clear();
+        }
+
+        public void Dispose()
+        {
+            lock (sync)
+            {
+                CloseHandles();
+                hasBaseline = false;
+                lastSampleUtc = DateTime.MinValue;
+            }
+        }
+    }
+
     internal sealed class TrafficSample
     {
         internal DateTime TimestampUtc;
         internal double DownloadMbps;
         internal double UploadMbps;
         internal double OfflineActivityMbps;
+        internal double DiskActivityMbps;
         internal bool ManagedDisabled;
     }
 
@@ -2922,6 +3419,13 @@ namespace OffNet
         private readonly List<TrafficSample> samples = new List<TrafficSample>();
         private readonly Dictionary<string, TrafficCounterSnapshot> previousCounters =
             new Dictionary<string, TrafficCounterSnapshot>(StringComparer.OrdinalIgnoreCase);
+        private readonly DiskActivityCounter diskActivityCounter =
+            new DiskActivityCounter();
+
+        private bool showDownloadStream = true;
+        private bool showUploadStream = true;
+        private bool showOfflineActivityStream = true;
+        private bool showDiskActivityStream = true;
 
         private HashSet<string> managedInterfaceIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2960,6 +3464,56 @@ namespace OffNet
             }
         }
 
+        internal void SetVisibleStreams(
+            bool showDownload,
+            bool showUpload,
+            bool showOfflineActivity,
+            bool showDiskActivity)
+        {
+            bool changed = false;
+
+            lock (sync)
+            {
+                bool oldNeedNetwork =
+                    showDownloadStream ||
+                    showUploadStream ||
+                    showOfflineActivityStream;
+
+                bool newNeedNetwork =
+                    showDownload ||
+                    showUpload ||
+                    showOfflineActivity;
+
+                changed =
+                    showDownloadStream != showDownload ||
+                    showUploadStream != showUpload ||
+                    showOfflineActivityStream != showOfflineActivity ||
+                    showDiskActivityStream != showDiskActivity;
+
+                showDownloadStream = showDownload;
+                showUploadStream = showUpload;
+                showOfflineActivityStream = showOfflineActivity;
+                showDiskActivityStream = showDiskActivity;
+
+                if (changed)
+                {
+                    // Avoid false deltas when streams are enabled after being
+                    // hidden for a while.
+                    previousCounters.Clear();
+                    lastSampleUtc = DateTime.MinValue;
+
+                    if (!oldNeedNetwork || !newNeedNetwork)
+                    {
+                        managedSignature = String.Empty;
+                        nextSelectorRefreshUtc = DateTime.MinValue;
+                    }
+                }
+            }
+
+            if (changed)
+                diskActivityCounter.Reset();
+        }
+
         internal void ResetCounters()
         {
             lock (sync)
@@ -2967,6 +3521,8 @@ namespace OffNet
                 previousCounters.Clear();
                 lastSampleUtc = DateTime.MinValue;
             }
+
+            diskActivityCounter.Reset();
         }
 
         internal void Sample(HashSet<string> managedDeviceIds, bool managedDisabled)
@@ -2974,139 +3530,219 @@ namespace OffNet
             try
             {
                 DateTime now = DateTime.UtcNow;
-                EnsureManagedSelectors(managedDeviceIds, now);
 
-                double elapsedSeconds;
+                bool showDownload;
+                bool showUpload;
+                bool showOffline;
+                bool showDisk;
+
                 lock (sync)
                 {
-                    elapsedSeconds = lastSampleUtc == DateTime.MinValue
-                        ? 0.0
-                        : (now - lastSampleUtc).TotalSeconds;
-                    lastSampleUtc = now;
+                    showDownload = showDownloadStream;
+                    showUpload = showUploadStream;
+                    showOffline = showOfflineActivityStream;
+                    showDisk = showDiskActivityStream;
                 }
 
-                double maximumReasonableGapSeconds =
-                    Math.Max(
-                        15.0,
-                        Math.Max(10, historySeconds) * 2.0);
+                bool needNetwork =
+                    showDownload ||
+                    showUpload ||
+                    showOffline;
 
-                if (elapsedSeconds <= 0.0 ||
-                    elapsedSeconds > maximumReasonableGapSeconds)
+                double elapsedSeconds = 0.0;
+
+                if (needNetwork)
                 {
-                    elapsedSeconds = 0.0;
+                    EnsureManagedSelectors(managedDeviceIds, now);
+
+                    lock (sync)
+                    {
+                        elapsedSeconds =
+                            lastSampleUtc == DateTime.MinValue
+                                ? 0.0
+                                : (now - lastSampleUtc).TotalSeconds;
+
+                        lastSampleUtc = now;
+                    }
+
+                    double maximumReasonableGapSeconds =
+                        Math.Max(
+                            15.0,
+                            Math.Max(10, historySeconds) * 2.0);
+
+                    if (elapsedSeconds <= 0.0 ||
+                        elapsedSeconds > maximumReasonableGapSeconds)
+                    {
+                        elapsedSeconds = 0.0;
+                    }
                 }
 
                 double downloadBytes = 0.0;
                 double uploadBytes = 0.0;
                 double offlineBytes = 0.0;
 
-                HashSet<string> seen =
-                    new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                NetworkInterface[] interfaces = NetworkInterface.GetAllNetworkInterfaces();
-
-                foreach (NetworkInterface networkInterface in interfaces)
+                if (needNetwork)
                 {
-                    if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
-                        continue;
+                    HashSet<string> seen =
+                        new HashSet<string>(
+                            StringComparer.OrdinalIgnoreCase);
 
-                    string normalizedId =
-                        DeviceManager.NormalizeNetworkInterfaceId(networkInterface.Id);
+                    NetworkInterface[] interfaces =
+                        NetworkInterface.GetAllNetworkInterfaces();
 
-                    if (String.IsNullOrWhiteSpace(normalizedId))
-                        normalizedId = networkInterface.Id;
-
-                    seen.Add(normalizedId);
-
-                    long bytesReceived;
-                    long bytesSent;
-
-                    try
+                    foreach (NetworkInterface networkInterface in interfaces)
                     {
-                        IPInterfaceStatistics statistics =
-                            networkInterface.GetIPStatistics();
-                        bytesReceived = statistics.BytesReceived;
-                        bytesSent = statistics.BytesSent;
-                    }
-                    catch
-                    {
-                        continue;
-                    }
+                        if (networkInterface.NetworkInterfaceType ==
+                            NetworkInterfaceType.Loopback)
+                        {
+                            continue;
+                        }
 
-                    TrafficCounterSnapshot previous = null;
+                        string normalizedId =
+                            DeviceManager.NormalizeNetworkInterfaceId(
+                                networkInterface.Id);
+
+                        if (String.IsNullOrWhiteSpace(normalizedId))
+                            normalizedId = networkInterface.Id;
+
+                        seen.Add(normalizedId);
+
+                        long bytesReceived;
+                        long bytesSent;
+
+                        try
+                        {
+                            IPInterfaceStatistics statistics =
+                                networkInterface.GetIPStatistics();
+
+                            bytesReceived = statistics.BytesReceived;
+                            bytesSent = statistics.BytesSent;
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+
+                        TrafficCounterSnapshot previous = null;
+
+                        lock (sync)
+                        {
+                            previousCounters.TryGetValue(
+                                normalizedId,
+                                out previous);
+
+                            previousCounters[normalizedId] =
+                                new TrafficCounterSnapshot
+                                {
+                                    BytesReceived = bytesReceived,
+                                    BytesSent = bytesSent
+                                };
+                        }
+
+                        if (elapsedSeconds <= 0.0 ||
+                            previous == null)
+                        {
+                            continue;
+                        }
+
+                        long receivedDelta =
+                            bytesReceived >= previous.BytesReceived
+                                ? bytesReceived - previous.BytesReceived
+                                : 0;
+
+                        long sentDelta =
+                            bytesSent >= previous.BytesSent
+                                ? bytesSent - previous.BytesSent
+                                : 0;
+
+                        bool isManaged =
+                            managedInterfaceIds.Contains(normalizedId) ||
+                            managedDescriptions.Contains(
+                                networkInterface.Description ??
+                                String.Empty) ||
+                            managedDescriptions.Contains(
+                                networkInterface.Name ??
+                                String.Empty);
+
+                        if (isManaged)
+                        {
+                            if (showDownload)
+                                downloadBytes += receivedDelta;
+
+                            if (showUpload)
+                                uploadBytes += sentDelta;
+                        }
+                        else if (showOffline &&
+                                 managedDisabled &&
+                                 networkInterface.OperationalStatus ==
+                                 OperationalStatus.Up)
+                        {
+                            // Offline activity deliberately combines RX + TX on
+                            // adapters that OffNet did not disable.
+                            offlineBytes +=
+                                receivedDelta +
+                                sentDelta;
+                        }
+                    }
 
                     lock (sync)
                     {
-                        previousCounters.TryGetValue(normalizedId, out previous);
-                        previousCounters[normalizedId] =
-                            new TrafficCounterSnapshot
-                            {
-                                BytesReceived = bytesReceived,
-                                BytesSent = bytesSent
-                            };
-                    }
+                        List<string> stale =
+                            new List<string>();
 
-                    if (elapsedSeconds <= 0.0 || previous == null)
-                        continue;
+                        foreach (string id in previousCounters.Keys)
+                        {
+                            if (!seen.Contains(id))
+                                stale.Add(id);
+                        }
 
-                    long receivedDelta =
-                        bytesReceived >= previous.BytesReceived
-                            ? bytesReceived - previous.BytesReceived
-                            : 0;
-
-                    long sentDelta =
-                        bytesSent >= previous.BytesSent
-                            ? bytesSent - previous.BytesSent
-                            : 0;
-
-                    bool isManaged =
-                        managedInterfaceIds.Contains(normalizedId) ||
-                        managedDescriptions.Contains(networkInterface.Description ?? String.Empty) ||
-                        managedDescriptions.Contains(networkInterface.Name ?? String.Empty);
-
-                    if (isManaged)
-                    {
-                        downloadBytes += receivedDelta;
-                        uploadBytes += sentDelta;
-                    }
-                    else if (managedDisabled &&
-                             networkInterface.OperationalStatus == OperationalStatus.Up)
-                    {
-                        // The third curve intentionally combines RX + TX. It exists to
-                        // reveal traffic on adapters that OffNet did NOT disable while the
-                        // user expects the managed adapters to be offline.
-                        offlineBytes += receivedDelta + sentDelta;
+                        foreach (string id in stale)
+                            previousCounters.Remove(id);
                     }
                 }
 
+                double diskMbps =
+                    showDisk
+                        ? diskActivityCounter.SampleMbps(now)
+                        : 0.0;
+
                 lock (sync)
                 {
-                    List<string> stale = new List<string>();
-                    foreach (string id in previousCounters.Keys)
-                    {
-                        if (!seen.Contains(id)) stale.Add(id);
-                    }
-
-                    foreach (string id in stale)
-                        previousCounters.Remove(id);
-
                     double divisor =
                         elapsedSeconds > 0.0
                             ? elapsedSeconds * 1000000.0
                             : 1.0;
 
-                    TrafficSample sample = new TrafficSample();
+                    TrafficSample sample =
+                        new TrafficSample();
+
                     sample.TimestampUtc = now;
-                    sample.DownloadMbps = elapsedSeconds > 0.0
-                        ? (downloadBytes * 8.0) / divisor
-                        : 0.0;
-                    sample.UploadMbps = elapsedSeconds > 0.0
-                        ? (uploadBytes * 8.0) / divisor
-                        : 0.0;
-                    sample.OfflineActivityMbps = elapsedSeconds > 0.0
-                        ? (offlineBytes * 8.0) / divisor
-                        : 0.0;
-                    sample.ManagedDisabled = managedDisabled;
+
+                    sample.DownloadMbps =
+                        showDownload &&
+                        elapsedSeconds > 0.0
+                            ? (downloadBytes * 8.0) / divisor
+                            : 0.0;
+
+                    sample.UploadMbps =
+                        showUpload &&
+                        elapsedSeconds > 0.0
+                            ? (uploadBytes * 8.0) / divisor
+                            : 0.0;
+
+                    sample.OfflineActivityMbps =
+                        showOffline &&
+                        elapsedSeconds > 0.0
+                            ? (offlineBytes * 8.0) / divisor
+                            : 0.0;
+
+                    sample.DiskActivityMbps =
+                        showDisk
+                            ? diskMbps
+                            : 0.0;
+
+                    sample.ManagedDisabled =
+                        managedDisabled;
 
                     samples.Add(sample);
                     TrimHistory(now);
@@ -3114,8 +3750,8 @@ namespace OffNet
             }
             catch
             {
-                // Traffic telemetry is an optional overview feature and must never
-                // interfere with OffNet's device control.
+                // Statistics are optional telemetry and must never interfere
+                // with OffNet's actual device-control path.
             }
         }
 
@@ -3133,12 +3769,18 @@ namespace OffNet
                     cloned.DownloadMbps = sample.DownloadMbps;
                     cloned.UploadMbps = sample.UploadMbps;
                     cloned.OfflineActivityMbps = sample.OfflineActivityMbps;
+                    cloned.DiskActivityMbps = sample.DiskActivityMbps;
                     cloned.ManagedDisabled = sample.ManagedDisabled;
                     copy.Add(cloned);
                 }
 
                 return copy;
             }
+        }
+
+        internal void Dispose()
+        {
+            diskActivityCounter.Dispose();
         }
 
         private void EnsureManagedSelectors(
@@ -3340,70 +3982,153 @@ namespace OffNet
                 System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             Rectangle bounds = ClientRectangle;
+
             StatisticsThemePalette palette =
-                StatisticsThemePalette.FromName(settings.StatisticsTheme);
+                StatisticsThemePalette.FromName(
+                    settings.StatisticsTheme);
+
             e.Graphics.Clear(palette.Background);
 
-            using (Font titleFont = new Font(Font, FontStyle.Bold))
+            using (Font titleFont =
+                new Font(Font, FontStyle.Bold))
             {
                 TextRenderer.DrawText(
                     e.Graphics,
                     Localization.F(
                         "TrafficGraphTitle",
-                        FormatHistoryDuration(settings.TrafficHistorySeconds)),
+                        FormatHistoryDuration(
+                            settings.TrafficHistorySeconds)),
                     titleFont,
-                    new Rectangle(10, 7, bounds.Width - 20, 22),
+                    new Rectangle(
+                        10,
+                        7,
+                        bounds.Width - 20,
+                        22),
                     ForeColor,
                     TextFormatFlags.Left |
                     TextFormatFlags.VerticalCenter |
                     TextFormatFlags.EndEllipsis);
             }
 
-            List<TrafficSample> snapshot = monitor.GetSnapshot();
+            List<TrafficSample> snapshot =
+                monitor.GetSnapshot();
+
             TrafficSample current =
                 snapshot.Count > 0
                     ? snapshot[snapshot.Count - 1]
                     : null;
 
-            Color downloadColor = Color.FromArgb(settings.DownloadColorArgb);
-            Color uploadColor = Color.FromArgb(settings.UploadColorArgb);
-            Color offlineColor = Color.FromArgb(settings.OfflineActivityColorArgb);
+            Color downloadColor =
+                Color.FromArgb(settings.DownloadColorArgb);
 
-            DrawLegendValue(
-                e.Graphics,
-                10,
-                32,
-                downloadColor,
-                Localization.T("TrafficDownload"),
-                current == null ? 0.0 : current.DownloadMbps);
+            Color uploadColor =
+                Color.FromArgb(settings.UploadColorArgb);
 
-            DrawLegendValue(
-                e.Graphics,
-                150,
-                32,
-                uploadColor,
-                Localization.T("TrafficUpload"),
-                current == null ? 0.0 : current.UploadMbps);
+            Color offlineColor =
+                Color.FromArgb(
+                    settings.OfflineActivityColorArgb);
 
-            DrawLegendValue(
-                e.Graphics,
-                276,
-                32,
-                offlineColor,
-                Localization.T("TrafficOfflineActivity"),
-                current == null || !current.ManagedDisabled ? 0.0 : current.OfflineActivityMbps);
+            Color diskColor =
+                Color.FromArgb(
+                    settings.DiskActivityColorArgb);
+
+            int visibleCount = GetVisibleStreamCount();
+            int legendRows = visibleCount > 2 ? 2 : 1;
+            int legendColumns = Math.Min(2, Math.Max(1, visibleCount));
+            int legendWidth = (bounds.Width - 20) / legendColumns;
+            int legendIndex = 0;
+
+            if (settings.ShowDownloadStream)
+            {
+                DrawLegendValue(
+                    e.Graphics,
+                    10 + (legendIndex % 2) * legendWidth,
+                    32 + (legendIndex / 2) * 22,
+                    legendWidth - 8,
+                    downloadColor,
+                    Localization.T("TrafficDownload"),
+                    current == null
+                        ? 0.0
+                        : current.DownloadMbps);
+
+                legendIndex++;
+            }
+
+            if (settings.ShowUploadStream)
+            {
+                DrawLegendValue(
+                    e.Graphics,
+                    10 + (legendIndex % 2) * legendWidth,
+                    32 + (legendIndex / 2) * 22,
+                    legendWidth - 8,
+                    uploadColor,
+                    Localization.T("TrafficUpload"),
+                    current == null
+                        ? 0.0
+                        : current.UploadMbps);
+
+                legendIndex++;
+            }
+
+            if (settings.ShowOfflineActivityStream)
+            {
+                DrawLegendValue(
+                    e.Graphics,
+                    10 + (legendIndex % 2) * legendWidth,
+                    32 + (legendIndex / 2) * 22,
+                    legendWidth - 8,
+                    offlineColor,
+                    Localization.T("TrafficOfflineActivity"),
+                    current == null ||
+                    !current.ManagedDisabled
+                        ? 0.0
+                        : current.OfflineActivityMbps);
+
+                legendIndex++;
+            }
+
+            if (settings.ShowDiskActivityStream)
+            {
+                DrawLegendValue(
+                    e.Graphics,
+                    10 + (legendIndex % 2) * legendWidth,
+                    32 + (legendIndex / 2) * 22,
+                    legendWidth - 8,
+                    diskColor,
+                    Localization.T("TrafficDiskActivity"),
+                    current == null
+                        ? 0.0
+                        : current.DiskActivityMbps);
+
+                legendIndex++;
+            }
+
+            int plotTop =
+                58 +
+                ((legendRows - 1) * 22);
 
             Rectangle plot =
-                new Rectangle(44, 58, bounds.Width - 56, bounds.Height - 83);
+                new Rectangle(
+                    44,
+                    plotTop,
+                    bounds.Width - 56,
+                    bounds.Height - plotTop - 25);
 
-            using (Pen borderPen = new Pen(palette.Border))
-            using (Pen gridPen = new Pen(palette.Grid))
+            using (Pen borderPen =
+                new Pen(palette.Border))
+            using (Pen gridPen =
+                new Pen(palette.Grid))
             {
-                e.Graphics.DrawRectangle(borderPen, plot);
+                e.Graphics.DrawRectangle(
+                    borderPen,
+                    plot);
 
                 for (int i = 1; i < 4; i++)
                 {
-                    int y = plot.Top + (plot.Height * i / 4);
+                    int y =
+                        plot.Top +
+                        (plot.Height * i / 4);
+
                     e.Graphics.DrawLine(
                         gridPen,
                         plot.Left,
@@ -3430,40 +4155,66 @@ namespace OffNet
                 double graphMax =
                     scaleState.GetMaximum(
                         snapshot,
-                        settings.TrafficScaleRefreshSeconds);
+                        settings.TrafficScaleRefreshSeconds,
+                        settings);
 
-                DrawCurve(
-                    e.Graphics,
-                    plot,
-                    snapshot,
-                    graphMax,
-                    downloadColor,
-                    0,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowDownloadStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        plot,
+                        snapshot,
+                        graphMax,
+                        downloadColor,
+                        0,
+                        settings.TrafficHistorySeconds);
+                }
 
-                DrawCurve(
-                    e.Graphics,
-                    plot,
-                    snapshot,
-                    graphMax,
-                    uploadColor,
-                    1,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowUploadStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        plot,
+                        snapshot,
+                        graphMax,
+                        uploadColor,
+                        1,
+                        settings.TrafficHistorySeconds);
+                }
 
-                DrawCurve(
-                    e.Graphics,
-                    plot,
-                    snapshot,
-                    graphMax,
-                    offlineColor,
-                    2,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowOfflineActivityStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        plot,
+                        snapshot,
+                        graphMax,
+                        offlineColor,
+                        2,
+                        settings.TrafficHistorySeconds);
+                }
+
+                if (settings.ShowDiskActivityStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        plot,
+                        snapshot,
+                        graphMax,
+                        diskColor,
+                        3,
+                        settings.TrafficHistorySeconds);
+                }
 
                 TextRenderer.DrawText(
                     e.Graphics,
                     FormatRate(graphMax),
                     Font,
-                    new Rectangle(0, plot.Top - 7, 40, 18),
+                    new Rectangle(
+                        0,
+                        plot.Top - 7,
+                        40,
+                        18),
                     ForeColor,
                     TextFormatFlags.Right |
                     TextFormatFlags.VerticalCenter);
@@ -3472,36 +4223,70 @@ namespace OffNet
                     e.Graphics,
                     "0",
                     Font,
-                    new Rectangle(0, plot.Bottom - 9, 40, 18),
+                    new Rectangle(
+                        0,
+                        plot.Bottom - 9,
+                        40,
+                        18),
                     ForeColor,
                     TextFormatFlags.Right |
                     TextFormatFlags.VerticalCenter);
             }
 
             string leftTime =
-                "-" + FormatHistoryDuration(settings.TrafficHistorySeconds);
+                "-" +
+                FormatHistoryDuration(
+                    settings.TrafficHistorySeconds);
 
             TextRenderer.DrawText(
                 e.Graphics,
                 leftTime,
                 Font,
-                new Rectangle(plot.Left, plot.Bottom + 4, 90, 18),
+                new Rectangle(
+                    plot.Left,
+                    plot.Bottom + 4,
+                    90,
+                    18),
                 palette.SecondaryText,
                 TextFormatFlags.Left);
 
             TextRenderer.DrawText(
                 e.Graphics,
-                "0 min",
+                "0",
                 Font,
-                new Rectangle(plot.Right - 80, plot.Bottom + 4, 80, 18),
+                new Rectangle(
+                    plot.Right - 80,
+                    plot.Bottom + 4,
+                    80,
+                    18),
                 palette.SecondaryText,
                 TextFormatFlags.Right);
+        }
+
+        private int GetVisibleStreamCount()
+        {
+            int count = 0;
+
+            if (settings.ShowDownloadStream)
+                count++;
+
+            if (settings.ShowUploadStream)
+                count++;
+
+            if (settings.ShowOfflineActivityStream)
+                count++;
+
+            if (settings.ShowDiskActivityStream)
+                count++;
+
+            return count;
         }
 
         private void DrawLegendValue(
             Graphics graphics,
             int x,
             int y,
+            int width,
             Color color,
             string label,
             double value)
@@ -3520,7 +4305,11 @@ namespace OffNet
                 graphics,
                 text,
                 Font,
-                new Rectangle(x + 15, y, 138, 20),
+                new Rectangle(
+                    x + 15,
+                    y,
+                    Math.Max(30, width - 15),
+                    20),
                 ForeColor,
                 TextFormatFlags.Left |
                 TextFormatFlags.VerticalCenter |
@@ -3600,8 +4389,10 @@ namespace OffNet
                         value = sample.DownloadMbps;
                     else if (series == 1)
                         value = sample.UploadMbps;
-                    else
+                    else if (series == 2)
                         value = sample.OfflineActivityMbps;
+                    else
+                        value = sample.DiskActivityMbps;
 
                     value = Math.Max(0.0, Math.Min(graphMax, value));
 
@@ -3880,7 +4671,20 @@ namespace OffNet
                         Math.Max(34, Math.Min(56, taskbarHeight - 2));
 
                     int desiredWidth =
-                        Math.Max(330, Math.Min(420, taskbarWidth / 4));
+                        Math.Max(
+                            260,
+                            Math.Min(
+                                720,
+                                settings.TaskbarMeterWidth));
+
+                    // Never allow the optional overlay to become wider than the
+                    // taskbar can reasonably accommodate.
+                    desiredWidth =
+                        Math.Min(
+                            desiredWidth,
+                            Math.Max(
+                                180,
+                                taskbarWidth - 24));
 
                     int x =
                         taskbarRect.Right -
@@ -3919,13 +4723,21 @@ namespace OffNet
                     if (trayNotify != IntPtr.Zero &&
                         NativeMethods.GetWindowRect(
                             trayNotify,
-                            out trayRect) &&
-                        trayRect.Left >
-                            taskbarRect.Left +
-                            desiredWidth +
-                            20)
+                            out trayRect))
                     {
-                        x = trayRect.Left - desiredWidth - 6;
+                        int availableBeforeTray =
+                            trayRect.Left -
+                            taskbarRect.Left -
+                            14;
+
+                        if (availableBeforeTray >= 180)
+                        {
+                            desiredWidth =
+                                Math.Min(
+                                    desiredWidth,
+                                    availableBeforeTray);
+                            x = trayRect.Left - desiredWidth - 6;
+                        }
                     }
 
                     int minimumX =
@@ -4003,104 +4815,183 @@ namespace OffNet
                     : null;
 
             double download =
-                current == null ? 0.0 : current.DownloadMbps;
+                current == null
+                    ? 0.0
+                    : current.DownloadMbps;
 
             double upload =
-                current == null ? 0.0 : current.UploadMbps;
+                current == null
+                    ? 0.0
+                    : current.UploadMbps;
 
             double offline =
-                current == null || !current.ManagedDisabled
+                current == null ||
+                !current.ManagedDisabled
                     ? 0.0
                     : current.OfflineActivityMbps;
 
+            double disk =
+                current == null
+                    ? 0.0
+                    : current.DiskActivityMbps;
+
             Color downloadColor =
-                Color.FromArgb(settings.DownloadColorArgb);
+                Color.FromArgb(
+                    settings.DownloadColorArgb);
+
             Color uploadColor =
-                Color.FromArgb(settings.UploadColorArgb);
+                Color.FromArgb(
+                    settings.UploadColorArgb);
+
             Color offlineColor =
-                Color.FromArgb(settings.OfflineActivityColorArgb);
+                Color.FromArgb(
+                    settings.OfflineActivityColorArgb);
+
+            Color diskColor =
+                Color.FromArgb(
+                    settings.DiskActivityColorArgb);
+            Color shadowColor =
+                Color.FromArgb(
+                    settings.TaskbarShadowColorArgb);
 
             int rightEdge = Width - 4;
+
             int valueRowHeight =
-                Math.Max(17, Math.Min(21, Height / 2));
+                Math.Max(
+                    17,
+                    Math.Min(
+                        21,
+                        Height / 2));
 
             int graphTop =
-                Math.Min(Height - 13, valueRowHeight);
+                Math.Min(
+                    Height - 13,
+                    valueRowHeight);
 
             Rectangle graph =
                 new Rectangle(
                     3,
                     graphTop,
-                    Math.Max(60, rightEdge - 4),
-                    Math.Max(12, Height - graphTop - 3));
+                    Math.Max(
+                        60,
+                        rightEdge - 4),
+                    Math.Max(
+                        12,
+                        Height - graphTop - 3));
 
             float valueFontSize =
-                Height <= 40 ? 8.0f : 8.7f;
+                Height <= 40
+                    ? 8.0f
+                    : 8.7f;
 
             using (Font valueFont =
                 CreateTaskbarFont(valueFontSize))
             using (Font scaleFont =
                 CreateTaskbarFont(
-                    Math.Max(7.0f, valueFontSize - 1.1f)))
+                    Math.Max(
+                        7.0f,
+                        valueFontSize - 1.1f)))
             {
                 int valuesWidth =
-                    Math.Max(150, rightEdge - 2);
+                    Math.Max(
+                        150,
+                        rightEdge - 2);
+
+                int visibleCount =
+                    Math.Max(
+                        1,
+                        GetVisibleStreamCount());
 
                 int cellWidth =
-                    Math.Max(68, valuesWidth / 3);
+                    Math.Max(
+                        74,
+                        valuesWidth /
+                        visibleCount);
 
-                DrawValueCell(
-                    e.Graphics,
-                    valueFont,
-                    new Rectangle(
-                        1,
-                        0,
-                        cellWidth,
-                        valueRowHeight),
-                    "▼",
-                    download,
-                    downloadColor,
-                    settings.TaskbarTextShadow);
+                int valueIndex = 0;
 
-                DrawValueCell(
-                    e.Graphics,
-                    valueFont,
-                    new Rectangle(
-                        1 + cellWidth,
-                        0,
-                        cellWidth,
-                        valueRowHeight),
-                    "▲",
-                    upload,
-                    uploadColor,
-                    settings.TaskbarTextShadow);
+                if (settings.ShowDownloadStream)
+                {
+                    DrawValueCell(
+                        e.Graphics,
+                        valueFont,
+                        GetValueCellBounds(
+                            valueIndex++,
+                            visibleCount,
+                            cellWidth,
+                            valuesWidth,
+                            valueRowHeight),
+                        "▼",
+                        download,
+                        downloadColor,
+                        shadowColor,
+                        settings.TaskbarTextShadow);
+                }
 
-                DrawValueCell(
-                    e.Graphics,
-                    valueFont,
-                    new Rectangle(
-                        1 + cellWidth * 2,
-                        0,
-                        Math.Max(
-                            62,
-                            valuesWidth - cellWidth * 2),
-                        valueRowHeight),
-                    "◆",
-                    offline,
-                    offlineColor,
-                    settings.TaskbarTextShadow);
+                if (settings.ShowUploadStream)
+                {
+                    DrawValueCell(
+                        e.Graphics,
+                        valueFont,
+                        GetValueCellBounds(
+                            valueIndex++,
+                            visibleCount,
+                            cellWidth,
+                            valuesWidth,
+                            valueRowHeight),
+                        "▲",
+                        upload,
+                        uploadColor,
+                        shadowColor,
+                        settings.TaskbarTextShadow);
+                }
+
+                if (settings.ShowOfflineActivityStream)
+                {
+                    DrawValueCell(
+                        e.Graphics,
+                        valueFont,
+                        GetValueCellBounds(
+                            valueIndex++,
+                            visibleCount,
+                            cellWidth,
+                            valuesWidth,
+                            valueRowHeight),
+                        "◆",
+                        offline,
+                        offlineColor,
+                        shadowColor,
+                        settings.TaskbarTextShadow);
+                }
+
+                if (settings.ShowDiskActivityStream)
+                {
+                    DrawValueCell(
+                        e.Graphics,
+                        valueFont,
+                        GetValueCellBounds(
+                            valueIndex++,
+                            visibleCount,
+                            cellWidth,
+                            valuesWidth,
+                            valueRowHeight),
+                        "■",
+                        disk,
+                        diskColor,
+                        shadowColor,
+                        settings.TaskbarTextShadow);
+                }
 
                 double graphMaximum =
                     scaleState.GetMaximum(
                         snapshot,
-                        settings.TrafficScaleRefreshSeconds);
+                        settings.TrafficScaleRefreshSeconds,
+                        settings);
 
                 Color taskbarText =
                     TaskbarThemeHelper.GetTextColor();
 
-                Color taskbarShadow =
-                    TaskbarThemeHelper.GetShadowColor(
-                        taskbarText);
+                Color taskbarShadow = shadowColor;
 
                 using (Pen baselinePen =
                     new Pen(
@@ -4117,43 +5008,69 @@ namespace OffNet
                         graph.Bottom - 1);
                 }
 
-                DrawCurve(
-                    e.Graphics,
-                    graph,
-                    snapshot,
-                    graphMaximum,
-                    downloadColor,
-                    0,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowDownloadStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        graph,
+                        snapshot,
+                        graphMaximum,
+                        downloadColor,
+                        0,
+                        settings.TrafficHistorySeconds);
+                }
 
-                DrawCurve(
-                    e.Graphics,
-                    graph,
-                    snapshot,
-                    graphMaximum,
-                    uploadColor,
-                    1,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowUploadStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        graph,
+                        snapshot,
+                        graphMaximum,
+                        uploadColor,
+                        1,
+                        settings.TrafficHistorySeconds);
+                }
 
-                DrawCurve(
-                    e.Graphics,
-                    graph,
-                    snapshot,
-                    graphMaximum,
-                    offlineColor,
-                    2,
-                    settings.TrafficHistorySeconds);
+                if (settings.ShowOfflineActivityStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        graph,
+                        snapshot,
+                        graphMaximum,
+                        offlineColor,
+                        2,
+                        settings.TrafficHistorySeconds);
+                }
+
+                if (settings.ShowDiskActivityStream)
+                {
+                    DrawCurve(
+                        e.Graphics,
+                        graph,
+                        snapshot,
+                        graphMaximum,
+                        diskColor,
+                        3,
+                        settings.TrafficHistorySeconds);
+                }
 
                 string maximumText =
-                    FormatMaximum(graphMaximum) +
+                    FormatMaximum(
+                        graphMaximum) +
                     " Mbit/s";
 
                 Rectangle scaleRect =
                     new Rectangle(
                         graph.Left + 2,
                         graph.Top,
-                        Math.Max(40, graph.Width - 4),
-                        Math.Max(12, graph.Height));
+                        Math.Max(
+                            40,
+                            graph.Width - 4),
+                        Math.Max(
+                            12,
+                            graph.Height));
 
                 DrawShadowedText(
                     e.Graphics,
@@ -4168,7 +5085,51 @@ namespace OffNet
                     TextFormatFlags.SingleLine |
                     TextFormatFlags.EndEllipsis);
             }
+        }
 
+        private int GetVisibleStreamCount()
+        {
+            int count = 0;
+
+            if (settings.ShowDownloadStream)
+                count++;
+
+            if (settings.ShowUploadStream)
+                count++;
+
+            if (settings.ShowOfflineActivityStream)
+                count++;
+
+            if (settings.ShowDiskActivityStream)
+                count++;
+
+            return count;
+        }
+
+        private static Rectangle GetValueCellBounds(
+            int index,
+            int visibleCount,
+            int cellWidth,
+            int valuesWidth,
+            int valueRowHeight)
+        {
+            int x =
+                1 +
+                (index * cellWidth);
+
+            int width =
+                index == visibleCount - 1
+                    ? Math.Max(
+                        62,
+                        valuesWidth -
+                        (index * cellWidth))
+                    : cellWidth;
+
+            return new Rectangle(
+                x,
+                0,
+                width,
+                valueRowHeight);
         }
 
         private Font CreateTaskbarFont(float size)
@@ -4215,6 +5176,7 @@ namespace OffNet
             string symbol,
             double value,
             Color color,
+            Color shadowColor,
             bool drawShadow)
         {
             string text =
@@ -4222,16 +5184,13 @@ namespace OffNet
                 " " +
                 FormatCurrentRate(value);
 
-            Color shadow =
-                TaskbarThemeHelper.GetShadowColor(color);
-
             DrawShadowedText(
                 graphics,
                 text,
                 font,
                 bounds,
                 color,
-                shadow,
+                shadowColor,
                 drawShadow,
                 TextFormatFlags.Left |
                 TextFormatFlags.VerticalCenter |
@@ -4353,8 +5312,10 @@ namespace OffNet
                         value = sample.DownloadMbps;
                     else if (series == 1)
                         value = sample.UploadMbps;
-                    else
+                    else if (series == 2)
                         value = sample.OfflineActivityMbps;
+                    else
+                        value = sample.DiskActivityMbps;
 
                     value =
                         Math.Max(
@@ -4509,6 +5470,11 @@ namespace OffNet
             trafficMonitor = new TrafficMonitor();
             trafficMonitor.SetHistorySeconds(settings.TrafficHistorySeconds);
             trafficMonitor.SetSamplePoints(settings.TrafficSamplePoints);
+            trafficMonitor.SetVisibleStreams(
+                settings.ShowDownloadStream,
+                settings.ShowUploadStream,
+                settings.ShowOfflineActivityStream,
+                settings.ShowDiskActivityStream);
             trafficGraph = new TrafficGraphControl(trafficMonitor, settings);
             taskbarTrafficForm = new TaskbarTrafficForm(trafficMonitor, settings);
 
@@ -4788,6 +5754,7 @@ namespace OffNet
             bool shouldRun =
                 !fullscreenActive &&
                 settings != null &&
+                HasAnyVisibleStream(settings) &&
                 (settings.ShowTrafficOverview ||
                  settings.ShowTaskbarTrafficMeter);
 
@@ -4875,6 +5842,16 @@ namespace OffNet
             trayMenu.Show(Cursor.Position);
         }
 
+        private static bool HasAnyVisibleStream(AppSettings appSettings)
+        {
+            return
+                appSettings != null &&
+                (appSettings.ShowDownloadStream ||
+                 appSettings.ShowUploadStream ||
+                 appSettings.ShowOfflineActivityStream ||
+                 appSettings.ShowDiskActivityStream);
+        }
+
         private static int CalculateTrafficSampleIntervalMilliseconds(
             AppSettings appSettings)
         {
@@ -4920,6 +5897,12 @@ namespace OffNet
             trafficMonitor.SetSamplePoints(
                 settings.TrafficSamplePoints);
 
+            trafficMonitor.SetVisibleStreams(
+                settings.ShowDownloadStream,
+                settings.ShowUploadStream,
+                settings.ShowOfflineActivityStream,
+                settings.ShowDiskActivityStream);
+
             if (trafficTimer != null)
             {
                 trafficTimer.Interval =
@@ -4934,6 +5917,7 @@ namespace OffNet
                 return;
 
             if (settings == null ||
+                !HasAnyVisibleStream(settings) ||
                 (!settings.ShowTrafficOverview &&
                  !settings.ShowTaskbarTrafficMeter))
             {
@@ -5150,6 +6134,7 @@ namespace OffNet
                     if (trayMenu != null) trayMenu.Dispose();
                     if (mainWindow != null) mainWindow.Dispose();
                     if (taskbarTrafficForm != null) taskbarTrafficForm.Dispose();
+                    if (trafficMonitor != null) trafficMonitor.Dispose();
                     if (activeIcon != null) activeIcon.Dispose();
                     if (disabledIcon != null) disabledIcon.Dispose();
                     if (offlineIconA != null) offlineIconA.Dispose();
