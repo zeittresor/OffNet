@@ -1,5 +1,5 @@
 ﻿/*
- * OffNet 1.6.1
+ * OffNet 1.6.2
  * Lightweight Windows 10/11 network-device tray controller.
  *
  * Project: https://github.com/zeittresor/OffNet
@@ -31,7 +31,7 @@ namespace OffNet
     internal static class Program
     {
         internal const string AppName = "OffNet";
-        internal const string Version = "1.6.1";
+        internal const string Version = "1.6.2";
         internal const string ProjectUrl = "https://github.com/zeittresor/OffNet";
 
         [STAThread]
@@ -103,8 +103,11 @@ namespace OffNet
         internal int TrafficHistorySeconds = 60;
         internal int TrafficSamplePoints = 75;
         internal int TrafficScaleRefreshSeconds = 5;
+        internal bool DynamicTrafficScale = true;
+        internal double FixedTrafficScaleMbps = 120.0;
         internal string StatisticsTheme = "Dark";
         internal string ApplicationTheme = "Muffin";
+        internal bool ConfirmDeviceStateChanges = true;
 
         // Which telemetry streams are visible in both statistics views.
         internal bool ShowDownloadStream = true;
@@ -141,8 +144,11 @@ namespace OffNet
             copy.TrafficHistorySeconds = TrafficHistorySeconds;
             copy.TrafficSamplePoints = TrafficSamplePoints;
             copy.TrafficScaleRefreshSeconds = TrafficScaleRefreshSeconds;
+            copy.DynamicTrafficScale = DynamicTrafficScale;
+            copy.FixedTrafficScaleMbps = FixedTrafficScaleMbps;
             copy.StatisticsTheme = StatisticsTheme;
             copy.ApplicationTheme = ApplicationTheme;
+            copy.ConfirmDeviceStateChanges = ConfirmDeviceStateChanges;
             copy.ShowDownloadStream = ShowDownloadStream;
             copy.ShowUploadStream = ShowUploadStream;
             copy.ShowOfflineActivityStream = ShowOfflineActivityStream;
@@ -196,6 +202,9 @@ namespace OffNet
                 {"TraySelectionSaved", "Tray selection saved: {0} device(s)."},
                 {"SelectDevice", "Select at least one network device."},
                 {"DisableSelectedConfirm", "Really disable the selected network devices persistently at PnP/driver level?\r\n\r\nAn active network or remote session may be disconnected immediately."},
+                {"EnableSelectedConfirm", "Really enable the selected network devices at PnP/driver level?\r\n\r\nThis may immediately restore network connectivity."},
+                {"EnableManagedConfirm", "Really enable the network devices managed by OffNet at PnP/driver level?\r\n\r\nThis may immediately restore LAN, Wi-Fi or other network connectivity."},
+                {"EnableTitle", "OffNet — Activate"},
                 {"DisableTitle", "OffNet — Disable"},
                 {"DeviceNotFound", "Device not found (CONFIGRET={0}):\r\n{1}"},
                 {"OperationFailed", "{0} failed (CONFIGRET={1}):\r\n{2}"},
@@ -214,6 +223,7 @@ namespace OffNet
                 {"NoManaged", "No network devices are marked for tray control."},
                 {"ActivateDone", "Managed network devices were enabled."},
                 {"DisableManagedConfirm", "Really disable the network devices managed by OffNet persistently at PnP/driver level?\r\n\r\nLAN, Wi-Fi, VPN or a remote session may be disconnected immediately."},
+                {"ConfirmDeviceChanges", "Ask for confirmation before enabling or disabling network devices"},
                 {"DisableDone", "Managed network devices were disabled persistently."},
                 {"ReconnectStart", "Reconnect is running: DHCP release/renew for IPv4 and IPv6..."},
                 {"ReconnectStarted", "DHCP release/renew has started."},
@@ -250,6 +260,8 @@ namespace OffNet
                 {"TrafficHistory", "History window"},
                 {"TrafficSamplePoints", "Measurement points"},
                 {"TrafficScaleRefresh", "Dynamic scale update"},
+                {"DynamicTrafficScale", "Dynamic Y-axis scaling"},
+                {"FixedTrafficScale", "Fixed Y-axis maximum (Mbit/s)"},
                 {"Seconds", "seconds"},
                 {"StatisticsTheme", "Statistics theme"},
                 {"Minutes", "minutes"},
@@ -307,6 +319,9 @@ namespace OffNet
                 {"TraySelectionSaved", "Tray-Auswahl gespeichert: {0} Gerät(e)."},
                 {"SelectDevice", "Bitte mindestens ein Netzwerkgerät auswählen."},
                 {"DisableSelectedConfirm", "Die ausgewählten Netzwerkgeräte wirklich persistent auf PnP-/Treiberebene deaktivieren?\r\n\r\nEine laufende Netzwerk- oder Remote-Verbindung kann sofort abbrechen."},
+                {"EnableSelectedConfirm", "Die ausgewählten Netzwerkgeräte wirklich auf PnP-/Treiberebene aktivieren?\r\n\r\nDadurch kann die Netzwerkverbindung sofort wiederhergestellt werden."},
+                {"EnableManagedConfirm", "Die von OffNet verwalteten Netzwerkgeräte wirklich auf PnP-/Treiberebene aktivieren?\r\n\r\nDadurch können LAN, WLAN oder andere Netzwerkverbindungen sofort wiederhergestellt werden."},
+                {"EnableTitle", "OffNet — Aktivieren"},
                 {"DisableTitle", "OffNet — Deaktivieren"},
                 {"DeviceNotFound", "Gerät nicht gefunden (CONFIGRET={0}):\r\n{1}"},
                 {"OperationFailed", "{0} fehlgeschlagen (CONFIGRET={1}):\r\n{2}"},
@@ -325,6 +340,7 @@ namespace OffNet
                 {"NoManaged", "Keine Netzwerkgeräte sind für die Tray-Steuerung markiert."},
                 {"ActivateDone", "Verwaltete Netzwerkgeräte wurden aktiviert."},
                 {"DisableManagedConfirm", "Die von OffNet verwalteten Netzwerkgeräte wirklich persistent auf PnP-/Treiberebene deaktivieren?\r\n\r\nLAN, WLAN, VPN oder eine Remote-Sitzung können dabei sofort getrennt werden."},
+                {"ConfirmDeviceChanges", "Vor dem Aktivieren oder Deaktivieren von Netzwerkgeräten nachfragen"},
                 {"DisableDone", "Verwaltete Netzwerkgeräte wurden persistent deaktiviert."},
                 {"ReconnectStart", "Reconnect läuft: DHCP Release/Renew für IPv4 und IPv6..."},
                 {"ReconnectStarted", "DHCP Release/Renew wurde gestartet."},
@@ -361,6 +377,8 @@ namespace OffNet
                 {"TrafficHistory", "Verlaufsfenster"},
                 {"TrafficSamplePoints", "Messpunkte"},
                 {"TrafficScaleRefresh", "Dynamische Skalenanpassung"},
+                {"DynamicTrafficScale", "Dynamische Y-Achsen-Skalierung"},
+                {"FixedTrafficScale", "Fester Y-Achsen-Maximalwert (Mbit/s)"},
                 {"Seconds", "Sekunden"},
                 {"StatisticsTheme", "Statistik-Theme"},
                 {"Minutes", "Minuten"},
@@ -418,6 +436,9 @@ namespace OffNet
                 {"TraySelectionSaved", "Sélection du tray enregistrée : {0} périphérique(s)."},
                 {"SelectDevice", "Sélectionnez au moins un périphérique réseau."},
                 {"DisableSelectedConfirm", "Désactiver réellement et de manière persistante les périphériques réseau sélectionnés au niveau PnP/pilote ?\r\n\r\nUne connexion réseau ou une session distante active peut être interrompue immédiatement."},
+                {"EnableSelectedConfirm", "Activer réellement les périphériques réseau sélectionnés au niveau PnP/pilote ?\r\n\r\nCela peut rétablir immédiatement la connectivité réseau."},
+                {"EnableManagedConfirm", "Activer réellement les périphériques réseau gérés par OffNet au niveau PnP/pilote ?\r\n\r\nCela peut rétablir immédiatement le LAN, le Wi-Fi ou d’autres connexions réseau."},
+                {"EnableTitle", "OffNet — Activer"},
                 {"DisableTitle", "OffNet — Désactiver"},
                 {"DeviceNotFound", "Périphérique introuvable (CONFIGRET={0}) :\r\n{1}"},
                 {"OperationFailed", "Échec de l’opération {0} (CONFIGRET={1}) :\r\n{2}"},
@@ -436,6 +457,7 @@ namespace OffNet
                 {"NoManaged", "Aucun périphérique réseau n’est marqué pour le contrôle du tray."},
                 {"ActivateDone", "Les périphériques réseau gérés ont été activés."},
                 {"DisableManagedConfirm", "Désactiver réellement et de manière persistante les périphériques réseau gérés par OffNet au niveau PnP/pilote ?\r\n\r\nLe LAN, le Wi-Fi, le VPN ou une session distante peuvent être interrompus immédiatement."},
+                {"ConfirmDeviceChanges", "Demander une confirmation avant d’activer ou de désactiver des périphériques réseau"},
                 {"DisableDone", "Les périphériques réseau gérés ont été désactivés de manière persistante."},
                 {"ReconnectStart", "Reconnexion en cours : DHCP release/renew pour IPv4 et IPv6..."},
                 {"ReconnectStarted", "Le DHCP release/renew a démarré."},
@@ -472,6 +494,8 @@ namespace OffNet
                 {"TrafficHistory", "Fenêtre d’historique"},
                 {"TrafficSamplePoints", "Points de mesure"},
                 {"TrafficScaleRefresh", "Mise à jour dynamique de l’échelle"},
+                {"DynamicTrafficScale", "Échelle Y dynamique"},
+                {"FixedTrafficScale", "Maximum fixe de l’axe Y (Mbit/s)"},
                 {"Seconds", "secondes"},
                 {"StatisticsTheme", "Thème des statistiques"},
                 {"Minutes", "minutes"},
@@ -652,6 +676,7 @@ namespace OffNet
                     string value = line.Substring(split + 1).Trim();
                     int colorValue;
                     int intValue;
+                    double doubleValue;
                     bool boolValue;
                     if (key == "language") settings.Language = value;
                     else if (key == "active_color" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colorValue)) settings.ActiveColorArgb = colorValue;
@@ -667,6 +692,9 @@ namespace OffNet
                     else if (key == "traffic_history_minutes" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficHistorySeconds = Math.Max(10, Math.Min(600, intValue * 60));
                     else if (key == "traffic_sample_points" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficSamplePoints = Math.Max(10, Math.Min(300, intValue));
                     else if (key == "traffic_scale_refresh_seconds" && Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue)) settings.TrafficScaleRefreshSeconds = Math.Max(1, Math.Min(30, intValue));
+                    else if (key == "dynamic_traffic_scale" && Boolean.TryParse(value, out boolValue)) settings.DynamicTrafficScale = boolValue;
+                    else if (key == "fixed_traffic_scale_mbps" && Double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out doubleValue)) settings.FixedTrafficScaleMbps = Math.Max(0.01, Math.Min(1000000.0, doubleValue));
+                    else if (key == "confirm_device_state_changes" && Boolean.TryParse(value, out boolValue)) settings.ConfirmDeviceStateChanges = boolValue;
                     else if (key == "statistics_theme" && !String.IsNullOrWhiteSpace(value)) settings.StatisticsTheme = value;
                     else if (key == "application_theme" && !String.IsNullOrWhiteSpace(value)) settings.ApplicationTheme = value;
                     else if (key == "show_download_stream" && Boolean.TryParse(value, out boolValue)) settings.ShowDownloadStream = boolValue;
@@ -709,6 +737,9 @@ namespace OffNet
             lines.Add("traffic_history_seconds=" + settings.TrafficHistorySeconds.ToString(CultureInfo.InvariantCulture));
             lines.Add("traffic_sample_points=" + settings.TrafficSamplePoints.ToString(CultureInfo.InvariantCulture));
             lines.Add("traffic_scale_refresh_seconds=" + settings.TrafficScaleRefreshSeconds.ToString(CultureInfo.InvariantCulture));
+            lines.Add("dynamic_traffic_scale=" + (settings.DynamicTrafficScale ? "true" : "false"));
+            lines.Add("fixed_traffic_scale_mbps=" + settings.FixedTrafficScaleMbps.ToString("0.00", CultureInfo.InvariantCulture));
+            lines.Add("confirm_device_state_changes=" + (settings.ConfirmDeviceStateChanges ? "true" : "false"));
             lines.Add("statistics_theme=" + (String.IsNullOrWhiteSpace(settings.StatisticsTheme) ? "Dark" : settings.StatisticsTheme));
             lines.Add("application_theme=" + (String.IsNullOrWhiteSpace(settings.ApplicationTheme) ? "Muffin" : settings.ApplicationTheme));
             lines.Add("show_download_stream=" + (settings.ShowDownloadStream ? "true" : "false"));
@@ -1924,6 +1955,19 @@ namespace OffNet
             DateTime now = DateTime.UtcNow;
             int seconds = Math.Max(1, Math.Min(30, refreshSeconds));
 
+            if (settings != null && !settings.DynamicTrafficScale)
+            {
+                currentMaximum =
+                    Math.Max(
+                        0.01,
+                        Math.Min(
+                            1000000.0,
+                            settings.FixedTrafficScaleMbps));
+
+                nextRefreshUtc = DateTime.MinValue;
+                return currentMaximum;
+            }
+
             if (now < nextRefreshUtc && currentMaximum > 0.0)
                 return currentMaximum;
 
@@ -2037,6 +2081,9 @@ namespace OffNet
         private readonly Label trafficSamplePointsLabel;
         private readonly TrackBar trafficSamplePointsSlider;
         private readonly Label trafficSamplePointsValue;
+        private readonly CheckBox dynamicTrafficScaleCheckBox;
+        private readonly Label fixedTrafficScaleLabel;
+        private readonly NumericUpDown fixedTrafficScaleValue;
         private readonly Label trafficScaleRefreshLabel;
         private readonly TrackBar trafficScaleRefreshSlider;
         private readonly Label trafficScaleRefreshValue;
@@ -2056,6 +2103,7 @@ namespace OffNet
         private Button offlineActivityButton;
         private Button diskActivityButton;
 
+        private readonly CheckBox confirmDeviceChangesCheckBox;
         private readonly CheckBox startupCheckBox;
         private readonly Button defaultsButton;
         private readonly Button projectButton;
@@ -2102,7 +2150,7 @@ namespace OffNet
             Height = 920;
             MinimumSize = new Size(660, 560);
             AutoScroll = true;
-            AutoScrollMinSize = new Size(660, 1140);
+            AutoScrollMinSize = new Size(660, 1280);
             Font = new Font("Segoe UI", 9.0f);
 
             languageLabel = new Label();
@@ -2166,7 +2214,7 @@ namespace OffNet
 
             trafficGroup = new GroupBox();
             trafficGroup.Location = new Point(16, 294);
-            trafficGroup.Size = new Size(628, 720);
+            trafficGroup.Size = new Size(628, 820);
             Controls.Add(trafficGroup);
 
             trafficOverviewCheckBox = new CheckBox();
@@ -2326,9 +2374,44 @@ namespace OffNet
                     trafficSamplePointsSlider.Value.ToString(CultureInfo.InvariantCulture);
             };
 
+            dynamicTrafficScaleCheckBox = new CheckBox();
+            dynamicTrafficScaleCheckBox.AutoSize = false;
+            dynamicTrafficScaleCheckBox.Location = new Point(16, 290);
+            dynamicTrafficScaleCheckBox.Size = new Size(592, 26);
+            dynamicTrafficScaleCheckBox.Checked = current.DynamicTrafficScale;
+            trafficGroup.Controls.Add(dynamicTrafficScaleCheckBox);
+
+            fixedTrafficScaleLabel = new Label();
+            fixedTrafficScaleLabel.AutoSize = false;
+            fixedTrafficScaleLabel.Location = new Point(16, 322);
+            fixedTrafficScaleLabel.Size = new Size(300, 24);
+            trafficGroup.Controls.Add(fixedTrafficScaleLabel);
+
+            fixedTrafficScaleValue = new NumericUpDown();
+            fixedTrafficScaleValue.DecimalPlaces = 2;
+            fixedTrafficScaleValue.Minimum = 0.01M;
+            fixedTrafficScaleValue.Maximum = 1000000.00M;
+            fixedTrafficScaleValue.Increment = 1.00M;
+            fixedTrafficScaleValue.ThousandsSeparator = true;
+            fixedTrafficScaleValue.Location = new Point(390, 318);
+            fixedTrafficScaleValue.Size = new Size(210, 24);
+            decimal fixedValue =
+                (decimal)Math.Max(
+                    0.01,
+                    Math.Min(
+                        1000000.0,
+                        current.FixedTrafficScaleMbps));
+            fixedTrafficScaleValue.Value = fixedValue;
+            trafficGroup.Controls.Add(fixedTrafficScaleValue);
+
+            dynamicTrafficScaleCheckBox.CheckedChanged += delegate
+            {
+                UpdateScaleModeControls();
+            };
+
             trafficScaleRefreshLabel = new Label();
             trafficScaleRefreshLabel.AutoSize = false;
-            trafficScaleRefreshLabel.Location = new Point(16, 290);
+            trafficScaleRefreshLabel.Location = new Point(16, 356);
             trafficScaleRefreshLabel.Size = new Size(200, 24);
             trafficGroup.Controls.Add(trafficScaleRefreshLabel);
 
@@ -2339,7 +2422,7 @@ namespace OffNet
             trafficScaleRefreshSlider.SmallChange = 1;
             trafficScaleRefreshSlider.LargeChange = 5;
             trafficScaleRefreshSlider.AutoSize = false;
-            trafficScaleRefreshSlider.Location = new Point(230, 284);
+            trafficScaleRefreshSlider.Location = new Point(230, 350);
             trafficScaleRefreshSlider.Size = new Size(300, 34);
             trafficScaleRefreshSlider.Value =
                 Math.Max(1, Math.Min(30, current.TrafficScaleRefreshSeconds));
@@ -2348,7 +2431,7 @@ namespace OffNet
             trafficScaleRefreshValue = new Label();
             trafficScaleRefreshValue.AutoSize = false;
             trafficScaleRefreshValue.TextAlign = ContentAlignment.MiddleRight;
-            trafficScaleRefreshValue.Location = new Point(538, 287);
+            trafficScaleRefreshValue.Location = new Point(538, 353);
             trafficScaleRefreshValue.Size = new Size(70, 24);
             trafficScaleRefreshValue.Text =
                 trafficScaleRefreshSlider.Value.ToString(CultureInfo.CurrentCulture) +
@@ -2364,13 +2447,13 @@ namespace OffNet
 
             statisticsThemeLabel = new Label();
             statisticsThemeLabel.AutoSize = false;
-            statisticsThemeLabel.Location = new Point(16, 328);
+            statisticsThemeLabel.Location = new Point(16, 394);
             statisticsThemeLabel.Size = new Size(190, 24);
             trafficGroup.Controls.Add(statisticsThemeLabel);
 
             statisticsThemeBox = new ComboBox();
             statisticsThemeBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            statisticsThemeBox.Location = new Point(230, 324);
+            statisticsThemeBox.Location = new Point(230, 390);
             statisticsThemeBox.Size = new Size(200, 24);
             statisticsThemeBox.Items.AddRange(new object[]
             {
@@ -2394,7 +2477,7 @@ namespace OffNet
             downloadStreamCheckBox =
                 AddTrafficStreamRow(
                     trafficGroup,
-                    372,
+                    438,
                     current.ShowDownloadStream,
                     current.ScaleDownloadStream,
                     out scaleDownloadCheckBox,
@@ -2403,7 +2486,7 @@ namespace OffNet
             uploadStreamCheckBox =
                 AddTrafficStreamRow(
                     trafficGroup,
-                    412,
+                    478,
                     current.ShowUploadStream,
                     current.ScaleUploadStream,
                     out scaleUploadCheckBox,
@@ -2412,7 +2495,7 @@ namespace OffNet
             offlineActivityStreamCheckBox =
                 AddTrafficStreamRow(
                     trafficGroup,
-                    452,
+                    518,
                     current.ShowOfflineActivityStream,
                     current.ScaleOfflineActivityStream,
                     out scaleOfflineActivityCheckBox,
@@ -2421,7 +2504,7 @@ namespace OffNet
             diskActivityStreamCheckBox =
                 AddTrafficStreamRow(
                     trafficGroup,
-                    492,
+                    558,
                     current.ShowDiskActivityStream,
                     current.ScaleDiskActivityStream,
                     out scaleDiskActivityCheckBox,
@@ -2434,19 +2517,26 @@ namespace OffNet
 
             trafficHintLabel = new Label();
             trafficHintLabel.AutoSize = false;
-            trafficHintLabel.Location = new Point(16, 536);
+            trafficHintLabel.Location = new Point(16, 602);
             trafficHintLabel.Size = new Size(592, 170);
             trafficGroup.Controls.Add(trafficHintLabel);
 
+            confirmDeviceChangesCheckBox = new CheckBox();
+            confirmDeviceChangesCheckBox.AutoSize = false;
+            confirmDeviceChangesCheckBox.Location = new Point(18, 1127);
+            confirmDeviceChangesCheckBox.Size = new Size(620, 34);
+            confirmDeviceChangesCheckBox.Checked = current.ConfirmDeviceStateChanges;
+            Controls.Add(confirmDeviceChangesCheckBox);
+
             startupCheckBox = new CheckBox();
             startupCheckBox.AutoSize = false;
-            startupCheckBox.Location = new Point(18, 1027);
+            startupCheckBox.Location = new Point(18, 1165);
             startupCheckBox.Size = new Size(620, 34);
             startupCheckBox.Checked = startWithWindows;
             Controls.Add(startupCheckBox);
 
             defaultsButton = new Button();
-            defaultsButton.Location = new Point(16, 1071);
+            defaultsButton.Location = new Point(16, 1209);
             defaultsButton.Size = new Size(165, 32);
             defaultsButton.Click += delegate
             {
@@ -2473,8 +2563,11 @@ namespace OffNet
                 trafficHistorySlider.Value = 6;
                 trafficSamplePointsSlider.Value = 75;
                 trafficScaleRefreshSlider.Value = 5;
+                dynamicTrafficScaleCheckBox.Checked = true;
+                fixedTrafficScaleValue.Value = 120.00M;
                 statisticsThemeBox.SelectedItem = "Dark";
                 applicationThemeBox.SelectedItem = "Muffin";
+                confirmDeviceChangesCheckBox.Checked = true;
                 taskbarTextShadowCheckBox.Checked = false;
                 trafficOverviewCheckBox.Checked = false;
                 taskbarTrafficCheckBox.Checked = false;
@@ -2482,17 +2575,18 @@ namespace OffNet
 
                 UpdateColorButtons();
                 UpdateShadowControls();
+                UpdateScaleModeControls();
             };
             Controls.Add(defaultsButton);
 
             projectButton = new Button();
-            projectButton.Location = new Point(190, 1071);
+            projectButton.Location = new Point(190, 1209);
             projectButton.Size = new Size(190, 32);
             projectButton.Click += delegate { ShellHelper.OpenProjectPage(); };
             Controls.Add(projectButton);
 
             okButton = new Button();
-            okButton.Location = new Point(454, 1071);
+            okButton.Location = new Point(454, 1209);
             okButton.Size = new Size(90, 32);
             okButton.Click += delegate
             {
@@ -2505,7 +2599,7 @@ namespace OffNet
             Controls.Add(okButton);
 
             cancelButton = new Button();
-            cancelButton.Location = new Point(554, 1071);
+            cancelButton.Location = new Point(554, 1209);
             cancelButton.Size = new Size(90, 32);
             cancelButton.DialogResult = DialogResult.Cancel;
             Controls.Add(cancelButton);
@@ -2750,6 +2844,25 @@ namespace OffNet
             return colorDialog.ShowDialog(this) == DialogResult.OK ? colorDialog.Color : current;
         }
 
+        private void UpdateScaleModeControls()
+        {
+            bool dynamicMode =
+                dynamicTrafficScaleCheckBox == null ||
+                dynamicTrafficScaleCheckBox.Checked;
+
+            trafficScaleRefreshLabel.Enabled = dynamicMode;
+            trafficScaleRefreshSlider.Enabled = dynamicMode;
+            trafficScaleRefreshValue.Enabled = dynamicMode;
+
+            scaleDownloadCheckBox.Enabled = dynamicMode;
+            scaleUploadCheckBox.Enabled = dynamicMode;
+            scaleOfflineActivityCheckBox.Enabled = dynamicMode;
+            scaleDiskActivityCheckBox.Enabled = dynamicMode;
+
+            fixedTrafficScaleLabel.Enabled = !dynamicMode;
+            fixedTrafficScaleValue.Enabled = !dynamicMode;
+        }
+
         private void UpdateColorButtons()
         {
             SetColorButton(activeButton, activeColor);
@@ -2800,6 +2913,8 @@ namespace OffNet
             taskbarMeterWidthLabel.Text = Localization.T("TaskbarMeterWidth");
             trafficHistoryLabel.Text = Localization.T("TrafficHistory");
             trafficSamplePointsLabel.Text = Localization.T("TrafficSamplePoints");
+            dynamicTrafficScaleCheckBox.Text = Localization.T("DynamicTrafficScale");
+            fixedTrafficScaleLabel.Text = Localization.T("FixedTrafficScale");
             trafficScaleRefreshLabel.Text = Localization.T("TrafficScaleRefresh");
             statisticsThemeLabel.Text = Localization.T("StatisticsTheme");
             downloadStreamCheckBox.Text = Localization.T("DownloadColor");
@@ -2812,6 +2927,7 @@ namespace OffNet
             scaleDiskActivityCheckBox.Text = Localization.T("AffectsScale");
             trafficHintLabel.Text = Localization.T("TrafficOptionsHint");
 
+            confirmDeviceChangesCheckBox.Text = Localization.T("ConfirmDeviceChanges");
             startupCheckBox.Text = Localization.T("StartWithWindows");
             defaultsButton.Text = Localization.T("RestoreDefaults");
             projectButton.Text = Localization.T("OpenProject");
@@ -2840,6 +2956,8 @@ namespace OffNet
             ResultSettings.TrafficHistorySeconds = trafficHistorySlider.Value * 10;
             ResultSettings.TrafficSamplePoints = trafficSamplePointsSlider.Value;
             ResultSettings.TrafficScaleRefreshSeconds = trafficScaleRefreshSlider.Value;
+            ResultSettings.DynamicTrafficScale = dynamicTrafficScaleCheckBox.Checked;
+            ResultSettings.FixedTrafficScaleMbps = (double)fixedTrafficScaleValue.Value;
             ResultSettings.StatisticsTheme =
                 statisticsThemeBox.SelectedItem == null
                     ? "Dark"
@@ -2863,6 +2981,9 @@ namespace OffNet
             ResultSettings.OfflineActivityColorArgb = offlineActivityColor.ToArgb();
             ResultSettings.DiskActivityColorArgb = diskActivityColor.ToArgb();
 
+            ResultSettings.ConfirmDeviceStateChanges =
+                confirmDeviceChangesCheckBox.Checked;
+
             ResultStartWithWindows = startupCheckBox.Checked;
         }
     }
@@ -2881,6 +3002,7 @@ namespace OffNet
         private readonly Button reconnectButton;
         private readonly Button deviceManagerButton;
         private string currentTheme = "Muffin";
+        private bool confirmDeviceStateChanges = true;
         private bool loading;
 
         internal event EventHandler ManagedDevicesChanged;
@@ -3054,6 +3176,13 @@ namespace OffNet
             ApplyLocalization();
         }
 
+        internal void ApplySettings(AppSettings appSettings)
+        {
+            confirmDeviceStateChanges =
+                appSettings == null ||
+                appSettings.ConfirmDeviceStateChanges;
+        }
+
         internal void ApplyLocalization()
         {
             Text = "OffNet " + Program.Version;
@@ -3209,10 +3338,33 @@ namespace OffNet
                 return;
             }
 
-            if (!enable)
+            if (confirmDeviceStateChanges)
             {
-                DialogResult answer = MessageBox.Show(Localization.T("DisableSelectedConfirm"), Localization.T("DisableTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-                if (answer != DialogResult.Yes) return;
+                string confirmText =
+                    enable
+                        ? Localization.T("EnableSelectedConfirm")
+                        : Localization.T("DisableSelectedConfirm");
+
+                string confirmTitle =
+                    enable
+                        ? Localization.T("EnableTitle")
+                        : Localization.T("DisableTitle");
+
+                MessageBoxIcon icon =
+                    enable
+                        ? MessageBoxIcon.Question
+                        : MessageBoxIcon.Warning;
+
+                DialogResult answer =
+                    MessageBox.Show(
+                        confirmText,
+                        confirmTitle,
+                        MessageBoxButtons.YesNo,
+                        icon,
+                        MessageBoxDefaultButton.Button2);
+
+                if (answer != DialogResult.Yes)
+                    return;
             }
 
             List<string> errors = new List<string>();
@@ -5523,6 +5675,7 @@ namespace OffNet
 
             bool firstRun = !ConfigurationStore.HasManagedDeviceConfiguration;
             mainWindow = new MainWindow();
+            mainWindow.ApplySettings(settings);
             mainWindow.ManagedDevicesChanged += delegate
             {
                 trafficMonitor.ResetCounters();
@@ -5665,6 +5818,7 @@ namespace OffNet
                     settings = form.ResultSettings.Clone();
                     Localization.SetLanguage(settings.Language);
                     ConfigurationStore.SaveSettings(settings);
+                    mainWindow.ApplySettings(settings);
 
                     ApplyTrafficSamplingSettings();
                     trafficGraph.UpdateSettings(settings);
@@ -6026,6 +6180,20 @@ namespace OffNet
                 return;
             }
 
+            if (settings.ConfirmDeviceStateChanges)
+            {
+                DialogResult answer =
+                    MessageBox.Show(
+                        Localization.T("EnableManagedConfirm"),
+                        Localization.T("EnableTitle"),
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question,
+                        MessageBoxDefaultButton.Button2);
+
+                if (answer != DialogResult.Yes)
+                    return;
+            }
+
             List<string> errors = new List<string>();
             foreach (string id in ids)
             {
@@ -6049,8 +6217,19 @@ namespace OffNet
                 return;
             }
 
-            DialogResult answer = MessageBox.Show(Localization.T("DisableManagedConfirm"), Localization.T("DisableTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-            if (answer != DialogResult.Yes) return;
+            if (settings.ConfirmDeviceStateChanges)
+            {
+                DialogResult answer =
+                    MessageBox.Show(
+                        Localization.T("DisableManagedConfirm"),
+                        Localization.T("DisableTitle"),
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning,
+                        MessageBoxDefaultButton.Button2);
+
+                if (answer != DialogResult.Yes)
+                    return;
+            }
 
             List<string> errors = new List<string>();
             foreach (string id in ids)

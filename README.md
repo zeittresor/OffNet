@@ -288,7 +288,7 @@ Text shadow is disabled by default.
 
 ## Windows executable metadata
 
-OffNet 1.6.1 explicitly embeds Windows version information in the generated executable instead of relying on compiler defaults.
+OffNet 1.6.2 explicitly embeds Windows version information in the generated executable instead of relying on compiler defaults.
 
 The **Details** tab of `OffNet.exe` includes:
 
@@ -322,7 +322,7 @@ This makes low and medium changes occupy more of the graph while still leaving a
 
 ## Selectable telemetry streams
 
-OffNet 1.6.1 adds a fourth statistics stream: **Disk activity**.
+OffNet 1.6.2 adds a fourth statistics stream: **Disk activity**.
 
 The visible streams are individually selectable in **Options**:
 
@@ -375,3 +375,25 @@ The permanent taskbar meter width is configurable from **260 to 720 pixels**. Th
 ## Taskbar text shadow
 
 The taskbar text-shadow option now uses one shared, configurable shadow color for **all visible throughput values and the dynamic scale label**. Default shadow color is black. The shadow color is configurable directly under the font/shadow controls.
+
+
+## Device-change confirmation
+
+OffNet can optionally ask for confirmation before changing PnP network-device state.
+
+When **Ask for confirmation before enabling or disabling network devices** is enabled, both Activate and Disable actions from the tray and main window require confirmation.
+
+When disabled, OffNet performs the requested device-state change immediately without an additional Yes/No dialog.
+
+The confirmation option is enabled by default.
+
+## Dynamic or fixed traffic scale
+
+The statistics Y-axis can now operate in two modes:
+
+- **Dynamic Y-axis scaling** — the existing adaptive scale, including the configurable refresh interval and per-stream `Affects scale` controls.
+- **Fixed Y-axis maximum** — a user-defined maximum in Mbit/s.
+
+Example: with a fixed maximum of `120 Mbit/s`, a real measured value of `130 Mbit/s` is still shown numerically as `130 Mbit/s`, but its curve is clipped to the top edge of the graph rather than expanding the scale.
+
+The fixed maximum applies consistently to both the tray-menu statistics graph and the permanent taskbar meter.

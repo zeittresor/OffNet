@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.2
+
+- Added an optional safety confirmation for PnP network-device Activate/Disable actions.
+- Confirmation is enabled by default and can be disabled in **Options** for immediate switching without another popup.
+- The confirmation setting applies to both the main OffNet window and tray Activate/Disable actions.
+- Added **Dynamic Y-axis scaling** on/off control.
+- Added a manually configurable **Fixed Y-axis maximum (Mbit/s)**.
+- In fixed-scale mode, values above the configured maximum remain numerically correct but their graph curve is clipped at the top edge.
+- Fixed-scale mode applies to both the tray-menu graph and permanent taskbar meter.
+- Dynamic scale refresh and per-stream `Affects scale` controls are disabled in Options while fixed-scale mode is selected.
+- Preserved all OffNet 1.6.1 stream visibility, scale-influence, taskbar width, text-shadow, disk activity, full-screen and theme features.
+
 ## 1.6.1
 
 - Added independent **Show** and **Affects scale** controls for Download, Upload, Offline network activity and Disk activity.
